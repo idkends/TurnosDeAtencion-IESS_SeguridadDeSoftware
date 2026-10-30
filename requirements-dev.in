@@ -1,0 +1,6 @@
+# Dependencias de desarrollo y prueba (se instalan además de requirements.txt)
+-c requirements.txt
+pytest>=8
+pytest-django>=4.9
+pytest-cov>=6
+import-linter>=2.1

@@ -1,0 +1,26 @@
+# Secretos y entorno local
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+docker/certs/*.pem
+docker/certs/*.key
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+
+# Artefactos locales
+var/
+staticfiles/
+*.log
+.idea/
+.vscode/
