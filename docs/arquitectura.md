@@ -1,7 +1,7 @@
 # Arquitectura del portal de turnos IESS (prototipo)
 
 Documento de las **Etapas 1 y 2**. Fuente de verdad del diseño: `docs/informe.pdf`. Las reglas obligatorias para las
-cuatro etapas están en `CLAUDE.md`; una prueba de arquitectura (`tests/arquitectura/`) hace que el repositorio falle
+cuatro etapas están en las reglas del proyecto (no publicadas); una prueba de arquitectura (`tests/arquitectura/`) hace que el repositorio falle
 si alguna se rompe.
 
 ## 1. Por qué un monolito modular

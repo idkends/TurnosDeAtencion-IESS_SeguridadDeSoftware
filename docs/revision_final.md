@@ -1,7 +1,7 @@
 # Revisión final (Etapa 4)
 
 Se repasó el código contra (1) la lista de verificación de código del Anexo H, (2) OWASP Top 10:2025 y OWASP API Security Top 10:2023 (tablas del informe) y
-(3) las reglas de arquitectura de `CLAUDE.md`. Cada afirmación de «cumple» tiene detrás una prueba automática o un comando que se puede repetir
+(3) las reglas de arquitectura de las reglas del proyecto (no publicadas). Cada afirmación de «cumple» tiene detrás una prueba automática o un comando que se puede repetir
 (`make verify`); lo que no se pudo comprobar así se dice como tal.
 
 ## 1. Lista de verificación de código (Anexo H)
