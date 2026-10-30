@@ -1,5 +1,5 @@
 {
-  "fecha_utc": "2026-10-30T15:08:06+00:00",
+  "fecha_utc": "2026-10-30T16:44:42+00:00",
   "metas": {
     "p95_ms": 2000.0,
     "errores": 0.01
@@ -7,21 +7,21 @@
   "escenarios": {
     "sostenida": {
       "solicitudes": 8001,
-      "p95_ms": 44.0,
-      "p99_ms": 177.2,
+      "p95_ms": 24.2,
+      "p99_ms": 390.4,
       "tasa_errores": 0,
       "cumple_metas": true
     },
     "rafaga": {
-      "solicitudes": 10953,
-      "p95_ms": 2025.2,
-      "p99_ms": 2561.5,
+      "solicitudes": 10980,
+      "p95_ms": 2062.1,
+      "p99_ms": 2457.3,
       "tasa_errores": 0,
       "cumple_metas": false
     }
   },
   "origen_abusivo_limitado": {
-    "respuestas_429_o_403": 1320,
+    "respuestas_429_o_403": 1381,
     "cumple": true
   },
   "los_limites_no_bloquean_a_todos": false,

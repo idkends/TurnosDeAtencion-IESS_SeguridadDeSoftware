@@ -1,8 +1,7 @@
 # Portal de turnos IESS (prototipo académico)
 
 Prototipo local, con datos **100 % sintéticos**, de un portal de turnos de atención médica con seguridad de nivel producción
-(IESS ficticio). El diseño completo es [`docs/informe.pdf`](docs/informe.pdf) y es la fuente de verdad; las reglas del proyecto están
-en [`CLAUDE.md`](CLAUDE.md). **Estado: las 4 etapas están completas** (ver [`docs/revision_final.md`](docs/revision_final.md) para lo que
+(IESS ficticio). El diseño completo es [`docs/informe.pdf`](docs/informe.pdf) y es la fuente de verdad. **Estado: las 4 etapas están completas** (ver [`docs/revision_final.md`](docs/revision_final.md) para lo que
 cumple, lo que no y lo que se simuló).
 
 Pila: Python 3.13 · Django 5.2 LTS · PostgreSQL 18 · Redis (solo límites y caché) · nginx con TLS de desarrollo · Docker Compose.

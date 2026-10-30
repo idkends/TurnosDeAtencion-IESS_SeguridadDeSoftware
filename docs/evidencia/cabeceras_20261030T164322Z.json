@@ -1,5 +1,5 @@
 {
-  "fecha_utc": "2026-10-30T16:21:22+00:00",
+  "fecha_utc": "2026-10-30T16:43:22+00:00",
   "url": "https://localhost:8443",
   "total": 24,
   "fallas": 0,
@@ -12,7 +12,7 @@
     {
       "comprobacion": "CSP default-src 'none'",
       "ok": true,
-      "detalle": "img-src 'self'; base-uri 'self'; default-src 'none'; style-src 'self' 'nonce-LaJ"
+      "detalle": "upgrade-insecure-requests; script-src 'self' 'nonce-6lZd6a49C4wcjPrAzdVSIQ=='; f"
     },
     {
       "comprobacion": "CSP sin 'unsafe-inline' ni 'unsafe-eval'",
@@ -82,7 +82,7 @@
     {
       "comprobacion": "__Host-csrftoken: Secure, HttpOnly, SameSite, prefijo __Host-, Path=/ y sin Domain",
       "ok": true,
-      "detalle": "__Host-csrftoken=99oJHinyiCn3BtEYwvZG0H1uVJUsEtOK; expires=Fri, 29 Oct 2027 16:21:01 GMT; HttpOnly; Max-Age=31449600; Path=/; SameSite=Lax; Secure"
+      "detalle": "__Host-csrftoken=zC69mN8gabKc6BwZJsLWymtPIoutua9O; expires=Fri, 29 Oct 2027 16:43:01 GMT; HttpOnly; Max-Age=31449600; Path=/; SameSite=Lax; Secure"
     },
     {
       "comprobacion": "404 sin traza ni detalles técnicos",

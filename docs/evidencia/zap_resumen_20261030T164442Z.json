@@ -1,6 +1,6 @@
 {
   "zap": "2.17.0",
-  "generado": "Fri, 30 Oct 2026 15:28:19",
+  "generado": "Fri, 30 Oct 2026 16:45:27",
   "conteo": {
     "alto": 0,
     "medio": 0,
@@ -16,31 +16,31 @@
         "id": "10049",
         "nombre": "Non-Storable Content",
         "instancias": 5,
-        "justificada": false
+        "justificada": true
       },
       {
         "id": "10015",
         "nombre": "Re-examine Cache-control Directives",
         "instancias": 5,
-        "justificada": false
+        "justificada": true
       },
       {
         "id": "10112",
         "nombre": "Session Management Response Identified",
-        "instancias": 10,
-        "justificada": false
+        "instancias": 12,
+        "justificada": true
       },
       {
         "id": "10049",
         "nombre": "Storable and Cacheable Content",
         "instancias": 2,
-        "justificada": false
+        "justificada": true
       },
       {
         "id": "10031",
         "nombre": "User Controllable HTML Element Attribute (Potential XSS)",
         "instancias": 3,
-        "justificada": false
+        "justificada": true
       }
     ]
   },

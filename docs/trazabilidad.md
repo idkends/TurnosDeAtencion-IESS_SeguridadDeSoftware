@@ -1,6 +1,6 @@
 # Matriz de trazabilidad (generada)
 
-> Generado por `scripts/trazabilidad.py` el 2026-10-30 16:36 UTC a partir de los nombres de las pruebas. No editar a mano.
+> Generado por `scripts/trazabilidad.py` el 2026-10-30 16:43 UTC a partir de los nombres de las pruebas. No editar a mano.
 > Los vínculos vienen del Anexo C, §10.1, §10.2 y Anexo G del informe (`scripts/trazabilidad_datos.py`).
 
 ## Resumen

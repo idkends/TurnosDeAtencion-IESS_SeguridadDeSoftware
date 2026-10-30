@@ -26,3 +26,7 @@ staticfiles/
 .vscode/
 
 respaldos_locales/
+
+# Material de trabajo con el asistente (no se publica)
+prompts/
+CLAUDE.md

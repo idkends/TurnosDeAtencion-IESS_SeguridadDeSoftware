@@ -1,0 +1,15 @@
+{
+  "fecha_utc": "2026-10-30T16:47:26Z",
+  "copia": "base_20261030T164534Z.tar.enc",
+  "recuperado_hasta": "ultimo WAL disponible",
+  "rpo_segundos": 64,
+  "rpo_objetivo_segundos": 300,
+  "rto_segundos": 12,
+  "rto_objetivo_segundos": 1800,
+  "eventos_auditoria_perdidos_vs_origen": 1,
+  "ultima_secuencia_restaurada": 16027,
+  "usuarios_restaurados": 59,
+  "turnos_restaurados": 11,
+  "cadena_auditoria": "íntegra",
+  "cumple_objetivos": true
+}

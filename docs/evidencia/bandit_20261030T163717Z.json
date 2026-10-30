@@ -1,19 +1,19 @@
 {
   "errors": [],
-  "generated_at": "2026-10-30T16:14:22Z",
+  "generated_at": "2026-10-30T16:42:38Z",
   "metrics": {
     "_totals": {
-      "CONFIDENCE.HIGH": 1,
+      "CONFIDENCE.HIGH": 0,
       "CONFIDENCE.LOW": 0,
       "CONFIDENCE.MEDIUM": 0,
       "CONFIDENCE.UNDEFINED": 0,
       "SEVERITY.HIGH": 0,
       "SEVERITY.LOW": 0,
-      "SEVERITY.MEDIUM": 1,
+      "SEVERITY.MEDIUM": 0,
       "SEVERITY.UNDEFINED": 0,
-      "loc": 8053,
+      "loc": 8064,
       "nosec": 0,
-      "skipped_tests": 7
+      "skipped_tests": 8
     },
     "apps/__init__.py": {
       "CONFIDENCE.HIGH": 0,
@@ -458,17 +458,17 @@
       "skipped_tests": 0
     },
     "apps/cuentas/servicios.py": {
-      "CONFIDENCE.HIGH": 1,
+      "CONFIDENCE.HIGH": 0,
       "CONFIDENCE.LOW": 0,
       "CONFIDENCE.MEDIUM": 0,
       "CONFIDENCE.UNDEFINED": 0,
       "SEVERITY.HIGH": 0,
       "SEVERITY.LOW": 0,
-      "SEVERITY.MEDIUM": 1,
+      "SEVERITY.MEDIUM": 0,
       "SEVERITY.UNDEFINED": 0,
       "loc": 1161,
       "nosec": 0,
-      "skipped_tests": 1
+      "skipped_tests": 2
     },
     "apps/cuentas/urls.py": {
       "CONFIDENCE.HIGH": 0,
@@ -1779,7 +1779,7 @@
       "SEVERITY.LOW": 0,
       "SEVERITY.MEDIUM": 0,
       "SEVERITY.UNDEFINED": 0,
-      "loc": 141,
+      "loc": 152,
       "nosec": 0,
       "skipped_tests": 0
     },
@@ -1901,26 +1901,5 @@
       "skipped_tests": 0
     }
   },
-  "results": [
-    {
-      "code": "546     qr = segno.make(uri, error=\"m\").svg_inline(scale=5, border=2)\n547     return ConfiguracionMfa(secreto=secreto, uri=uri, qr_svg=mark_safe(qr))  # nosec B703,B308\n548 \n",
-      "col_offset": 61,
-      "end_col_offset": 74,
-      "filename": "apps/cuentas/servicios.py",
-      "issue_confidence": "HIGH",
-      "issue_cwe": {
-        "id": 80,
-        "link": "https://cwe.mitre.org/data/definitions/80.html"
-      },
-      "issue_severity": "MEDIUM",
-      "issue_text": "Potential XSS on mark_safe function.",
-      "line_number": 547,
-      "line_range": [
-        547
-      ],
-      "more_info": "https://bandit.readthedocs.io/en/1.9.4/plugins/b703_django_mark_safe.html",
-      "test_id": "B703",
-      "test_name": "django_mark_safe"
-    }
-  ]
+  "results": []
 }

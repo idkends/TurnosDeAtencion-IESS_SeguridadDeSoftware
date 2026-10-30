@@ -1,18 +1,18 @@
 {
-  "fecha_utc": "2026-10-30T16:21:33+00:00",
-  "version_codigo": "c88e0d1",
+  "fecha_utc": "2026-10-30T16:47:43+00:00",
+  "version_codigo": "b345903",
   "cambios_sin_confirmar": true,
   "resultado": "ROJO",
   "pasos": [
     {
       "paso": "1. pytest completo con cobertura (T01-T18, CA-01..CA-16 y arquitectura)",
       "resultado": "ok",
-      "segundos": 263
+      "segundos": 274
     },
     {
       "paso": "2. Contratos de arquitectura (import-linter)",
       "resultado": "ok",
-      "segundos": 4
+      "segundos": 5
     },
     {
       "paso": "3. manage.py check --deploy (producción, sin advertencias)",
@@ -21,7 +21,7 @@
     },
     {
       "paso": "4. Bandit (sin hallazgos medios ni altos)",
-      "resultado": "falla",
+      "resultado": "ok",
       "segundos": 5
     },
     {
@@ -37,7 +37,7 @@
     {
       "paso": "7. gitleaks (secretos en todo el historial de git)",
       "resultado": "ok",
-      "segundos": 9
+      "segundos": 11
     },
     {
       "paso": "8. Cabeceras, cookies y TLS contra la aplicación en ejecución",
@@ -50,14 +50,34 @@
       "segundos": 2
     },
     {
+      "paso": "9b. La rama insegura lab/inseguro no está integrada ni dejó marcas en el código",
+      "resultado": "ok",
+      "segundos": 0
+    },
+    {
       "paso": "10. Trazabilidad (ningún riesgo, requisito, prueba T ni caso CA sin prueba)",
       "resultado": "ok",
       "segundos": 0
     },
     {
-      "paso": "11. Pruebas de evidencia (T08, T09, T14, T15 leen los informes recién generados)",
+      "paso": "C1. Carga k6: 200 req/s, ráfaga de 400, 8 000 usuarios (T09)",
+      "resultado": "falla",
+      "segundos": 78
+    },
+    {
+      "paso": "C2. OWASP ZAP baseline, autenticado (T14)",
       "resultado": "ok",
-      "segundos": 9
+      "segundos": 52
+    },
+    {
+      "paso": "C3. Respaldo y restauración con RPO/RTO medidos (T08)",
+      "resultado": "ok",
+      "segundos": 118
+    },
+    {
+      "paso": "11. Pruebas de evidencia (T08, T09, T14, T15 leen los informes recién generados)",
+      "resultado": "falla",
+      "segundos": 11
     }
   ]
 }

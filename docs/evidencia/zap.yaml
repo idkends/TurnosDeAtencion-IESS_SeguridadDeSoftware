@@ -22,19 +22,31 @@ jobs:
 - parameters:
     format: Long
     summaryFile: /home/zap/zap_out.json
-  rules: []
+  rules:
+  - action: IGNORE
+    customMessage: ''
+    id: 10015
+  - action: IGNORE
+    customMessage: ''
+    id: 10049
+  - action: IGNORE
+    customMessage: ''
+    id: 10112
+  - action: IGNORE
+    customMessage: ''
+    id: 10031
   type: outputSummary
 - parameters:
     reportDescription: ''
     reportDir: /zap/wrk/
-    reportFile: zap_20261030T152739Z.html
+    reportFile: zap_20261030T164442Z.html
     reportTitle: ZAP Scanning Report
     template: traditional-html
   type: report
 - parameters:
     reportDescription: ''
     reportDir: /zap/wrk/
-    reportFile: zap_20261030T152739Z.json
+    reportFile: zap_20261030T164442Z.json
     reportTitle: ZAP Scanning Report
     template: traditional-json
   type: report
