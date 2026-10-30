@@ -104,20 +104,31 @@ def test_listar_y_revocar_sesiones_por_las_vistas(crear_usuario, clave_buena):
     _ingresar(b, usuario, clave_buena)
     pagina = a.get(reverse("cuentas:sesiones"), **HTTPS).content.decode()
     assert "(esta sesión)" in pagina and pagina.count("Cerrar</button>") == 2
-    ids = re.findall(r"/cuenta/sesiones/([0-9a-f-]{36})/revocar/", pagina)
-    for i in ids:  # revoca todas; una de ellas es la de B y otra la propia
-        a.post(reverse("cuentas:revocar_sesion", args=[i]), **HTTPS)
+    ids = re.findall(r'name="sesion" value="([0-9a-f-]{36})"', pagina)
+    for i in ids:  # cierra cada una; una de ellas es la de B y otra la propia (E05, alcance "una")
+        a.post(reverse("cuentas:salir"), {"alcance": "una", "sesion": i}, **HTTPS)
     assert b.get(reverse("cuentas:sesiones"), **HTTPS).status_code == 302  # la sesión de B ya no existe
 
 
-def test_revocar_una_sesion_inexistente_o_ajena_da_404(crear_usuario, clave_buena):
+def test_cerrar_todas_las_sesiones_por_la_vista(crear_usuario, clave_buena):
+    usuario = crear_usuario()
+    a, b = Client(), Client()
+    a.cookies["__Host-dispositivo"], b.cookies["__Host-dispositivo"] = "dispositivo-prueba-aaaa-0001", "dispositivo-prueba-bbbb-0002"
+    _ingresar(a, usuario, clave_buena)
+    _ingresar(b, usuario, clave_buena)
+    assert a.post(reverse("cuentas:salir"), {"alcance": "todas"}, **HTTPS).status_code == 302
+    assert a.get(reverse("cuentas:sesiones"), **HTTPS).status_code == 302
+    assert b.get(reverse("cuentas:sesiones"), **HTTPS).status_code == 302
+
+
+def test_cerrar_una_sesion_inexistente_o_ajena_da_404(crear_usuario, clave_buena):
     usuario, otro = crear_usuario(), crear_usuario()
     a, b = Client(), Client()
     _ingresar(a, usuario, clave_buena)
     _ingresar(b, otro, clave_buena)
-    id_de_b = re.search(r"/cuenta/sesiones/([0-9a-f-]{36})/revocar/", b.get(reverse("cuentas:sesiones"), **HTTPS).content.decode()).group(1)
-    assert a.post(reverse("cuentas:revocar_sesion", args=[id_de_b]), **HTTPS).status_code == 404
-    assert a.post(reverse("cuentas:revocar_sesion", args=["00000000-0000-0000-0000-000000000000"]), **HTTPS).status_code == 404
+    id_de_b = re.search(r'name="sesion" value="([0-9a-f-]{36})"', b.get(reverse("cuentas:sesiones"), **HTTPS).content.decode()).group(1)
+    assert a.post(reverse("cuentas:salir"), {"alcance": "una", "sesion": id_de_b}, **HTTPS).status_code == 404
+    assert a.post(reverse("cuentas:salir"), {"alcance": "una", "sesion": "00000000-0000-0000-0000-000000000000"}, **HTTPS).status_code == 404
 
 
 def test_cambiar_clave_por_las_vistas_pide_configurar_segundo_factor_y_luego_cierra_sesiones(crear_usuario, clave_buena, codigo_totp):

@@ -26,7 +26,8 @@ PERSONAL = (
     (906, Rol.AUDITOR_DPD, "Aldo", "Auditoría DPD", None),
     (907, Rol.ADMIN_TI, "Tomás", "Administración TI", None),
 )
-INDICES_DEMO_ACTIVOS = (1, 2, 51)  # dos afiliados y el representante
+INDICES_DEMO_ACTIVOS = (1, 2, 51)
+INDICES_PRIORITARIOS = (10, 20, 30)  # afiliados de atención prioritaria (adultos mayores, discapacidad)  # dos afiliados y el representante
 
 
 def _clave_aleatoria() -> str:
@@ -54,6 +55,13 @@ class Command(BaseCommand):
                 rol=Rol.REPRESENTANTE.value if a["indice"] == 51 else Rol.AFILIADO.value,
             )
         self.stdout.write(f"Afiliados y representante precargados (pendientes de activación): {len(registro)}")
+
+        # RT-11: grupos de atención prioritaria (cupos reservados y sin restricciones automáticas).
+        for a in registro:
+            if a["indice"] in INDICES_PRIORITARIOS:
+                persona = cuentas.persona_por_cedula(a["cedula"])
+                if persona is not None and not persona.atencion_prioritaria:
+                    cuentas.marcar_atencion_prioritaria(persona.id, True)
 
         entregadas = []
         for indice, rol, nombres, apellidos, est in PERSONAL:

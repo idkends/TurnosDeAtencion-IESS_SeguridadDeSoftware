@@ -110,8 +110,19 @@ class Turno(models.Model):
     atencion_registrada_por = models.ForeignKey(
         "cuentas.Usuario", null=True, blank=True, on_delete=models.PROTECT, related_name="atenciones_registradas"
     )
+    # Cancelación (permite deshacerla durante unos minutos si el cupo sigue libre).
+    cancelado_en = models.DateTimeField(null=True, blank=True)
+    estado_previo_cancelacion = models.CharField(max_length=24, blank=True)
+    # Inasistencia y justificación (72 h).
+    inasistencia_registrada_en = models.DateTimeField(null=True, blank=True)
+    justificado_en = models.DateTimeField(null=True, blank=True)
+    justificacion_tipo = models.CharField(max_length=12, blank=True)  # DOCUMENTO | DECLARACION
     creado = models.DateTimeField(auto_now_add=True)
     actualizado = models.DateTimeField(auto_now=True)
+
+    @property
+    def establecimiento_id(self):
+        return self.franja.establecimiento_id
 
     class Meta:
         db_table = "turnos_turno"
@@ -183,6 +194,7 @@ class Restriccion(models.Model):
     inicio = models.DateTimeField()
     fin = models.DateTimeField()
     revertida_en = models.DateTimeField(null=True, blank=True)
+    turno_origen = models.ForeignKey(Turno, null=True, blank=True, on_delete=models.SET_NULL, related_name="restricciones_derivadas")
     creada = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -192,4 +204,36 @@ class Restriccion(models.Model):
         constraints = [
             models.CheckConstraint(condition=Q(fin__gt=F("inicio")), name="ck_restriccion_rango"),
             models.CheckConstraint(condition=Q(tipo__in=[t.value for t in TipoRestriccion]), name="ck_restriccion_tipo"),
+        ]
+
+
+class EstadoApelacion(models.TextChoices):
+    PENDIENTE = "PENDIENTE", "Pendiente"
+    ACEPTADA = "ACEPTADA", "Aceptada"
+    RECHAZADA = "RECHAZADA", "Rechazada"
+
+
+class Apelacion(models.Model):
+    """Apelación de una restricción ante una persona de la unidad (respuesta en 5 días hábiles, LOPDP art. 20)."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    restriccion = models.ForeignKey(Restriccion, on_delete=models.PROTECT, related_name="apelaciones")
+    turno = models.ForeignKey(Turno, on_delete=models.PROTECT, related_name="apelaciones")
+    afiliado = models.ForeignKey("cuentas.Usuario", on_delete=models.PROTECT, related_name="apelaciones")
+    texto = models.CharField(max_length=500)
+    estado = models.CharField(max_length=10, choices=EstadoApelacion.choices, default=EstadoApelacion.PENDIENTE)
+    creada = models.DateTimeField()
+    responder_antes_de = models.DateTimeField()
+    resuelta_en = models.DateTimeField(null=True, blank=True)
+    resuelta_por = models.ForeignKey(
+        "cuentas.Usuario", null=True, blank=True, on_delete=models.PROTECT, related_name="apelaciones_resueltas"
+    )
+    motivo_resolucion = models.CharField(max_length=200, blank=True)
+
+    class Meta:
+        db_table = "turnos_apelacion"
+        default_permissions = ()
+        constraints = [
+            models.UniqueConstraint(fields=["restriccion"], condition=Q(estado="PENDIENTE"), name="uq_apelacion_pendiente"),
+            models.CheckConstraint(condition=Q(estado__in=["PENDIENTE", "ACEPTADA", "RECHAZADA"]), name="ck_apelacion_estado"),
         ]

@@ -37,6 +37,7 @@ def main() -> int:
         "DB_CLAVE_PRUEBAS": secrets.token_urlsafe(32),
         "REDIS_CLAVE": secrets.token_urlsafe(32),
         "SERVICIOS_CLAVE_AFILIACION": secrets.token_urlsafe(48),
+        "SERVICIOS_CLAVE_AGENDA": secrets.token_urlsafe(48),
         "NOTIFICACIONES_ADAPTADOR": "consola",
     }
     DESTINO.write_text("".join(f"{k}={v}\n" for k, v in valores.items()), encoding="utf-8")

@@ -1,0 +1,7 @@
+{% extends "base.html" %}
+{% block titulo %}Enlace no válido{% endblock %}
+{% block contenido %}
+  <h1>El enlace no es válido o ya venció</h1>
+  <div class="tarjeta"><p>Los enlaces de los avisos sirven una sola vez y vencen a las 24 horas. Ingrese al portal para ver sus turnos.</p>
+  <div class="acciones"><a class="boton" href="{% url 'cuentas:ingresar' %}">Ingresar</a></div></div>
+{% endblock %}

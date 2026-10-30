@@ -14,7 +14,7 @@ import secrets
 import time
 from contextlib import contextmanager
 from dataclasses import dataclass, field
-from datetime import timedelta
+from datetime import datetime, timedelta
 
 import pyotp
 import segno
@@ -84,6 +84,10 @@ class ReautenticacionRequerida(Exception):
 
 class AccesoDenegado(Exception):
     pass
+
+
+class NoEncontrado(Exception):
+    """Recurso inexistente O ajeno: misma respuesta (404) para no revelar cuál de los dos es (CA-07)."""
 
 
 @dataclass
@@ -904,3 +908,179 @@ def aprovisionar_cuenta(*, cedula: str, rol: str, nombres: str, apellidos: str, 
         usuario.save()
         auditoria.registrar(accion=Acciones.SIEMBRA, recurso_tipo="usuario", recurso_id=usuario.id, detalle={"rol": rol, "alta": "aprovisionada"})
     return usuario, True
+
+
+# --- Consultas de personas para otras apps (etapa 2) ---------------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class PersonaVista:
+    """Datos mínimos de una cuenta para otras apps: sin clave, sin segundo factor y sin contacto."""
+
+    id: object
+    cedula: str
+    nombres: str
+    apellidos: str
+    rol: str
+    estado: str
+    atencion_prioritaria: bool
+    establecimiento_id: object
+
+    @property
+    def nombre_completo(self) -> str:
+        return f"{self.nombres} {self.apellidos}".strip()
+
+
+def _persona(u: Usuario | None) -> PersonaVista | None:
+    if u is None:
+        return None
+    return PersonaVista(u.id, u.cedula, u.nombres, u.apellidos, u.rol, u.estado, u.atencion_prioritaria, u.establecimiento_id)
+
+
+def persona_por_id(persona_id) -> PersonaVista | None:
+    try:
+        return _persona(Usuario.objects.filter(pk=persona_id).first())
+    except (ValueError, TypeError, ValidationError):
+        return None
+
+
+def personas_por_ids(ids) -> dict:
+    return {u.id: _persona(u) for u in Usuario.objects.filter(pk__in=list(ids))}
+
+
+def persona_por_cedula(cedula: str) -> PersonaVista | None:
+    return _persona(Usuario.objects.filter(cedula=cedula).first()) if es_valida(cedula or "") else None
+
+
+def es_prioritaria(persona_id) -> bool:
+    return Usuario.objects.filter(pk=persona_id, atencion_prioritaria=True).exists()
+
+
+def marcar_atencion_prioritaria(persona_id, valor: bool = True) -> None:
+    """Alta administrativa en un grupo de atención prioritaria (RT-11): cupos reservados y exención de restricciones."""
+    Usuario.objects.filter(pk=persona_id).update(atencion_prioritaria=valor)
+    auditoria.registrar(accion=Acciones.SIEMBRA, recurso_tipo="usuario", recurso_id=persona_id, detalle={"atencion_prioritaria": valor})
+
+
+@dataclass(frozen=True)
+class ContactoCrudo:
+    persona_id: object
+    cedula: str
+    nombres: str
+    apellidos: str
+    correo: str
+    telefono: str
+    rol: str
+
+
+def contacto_por_cedula(cedula: str) -> ContactoCrudo | None:
+    """Contacto SIN enmascarar. Solo lo usan servicios que ya decidieron (con políticas) cuánto mostrar."""
+    if not es_valida(cedula or ""):
+        return None
+    u = Usuario.objects.filter(cedula=cedula, rol__in=[Rol.AFILIADO.value, Rol.REPRESENTANTE.value]).first()
+    if u is None:
+        return None
+    return ContactoCrudo(u.id, u.cedula, u.nombres, u.apellidos, u.correo, u.telefono, u.rol)
+
+
+def limitar_por_cuenta(ambito: str, usuario_id, maximo: int, ventana_segundos: int) -> None:
+    """Límite por cuenta para otras apps (reservas por hora, consultas de contacto): lanza LimiteExcedido y audita."""
+    _consumir_limite(ambito, str(usuario_id), maximo, ventana_segundos)
+
+
+# --- Derechos del titular (E15; la ejecución llega en la etapa 3) -----------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class SolicitudDerechosVista:
+    id: object
+    tipo: str
+    estado: str
+    creada: object
+    responder_requerimiento_antes_de: object
+    atender_antes_de: object
+
+
+def _vista_derechos(s) -> SolicitudDerechosVista:
+    return SolicitudDerechosVista(s.id, s.tipo, s.estado, s.creada, s.responder_requerimiento_antes_de, s.atender_antes_de)
+
+
+def registrar_solicitud_derechos(request, tipo: str, detalle: str = "") -> SolicitudDerechosVista:
+    """Registra la solicitud con sus plazos (10 y 15 días). Operación sensible: exige segundo factor reciente."""
+    from .modelos import SolicitudDerechos, TipoDerecho
+
+    usuario = request.user
+    if not politicas.puede_solicitar_derechos(usuario):
+        raise AccesoDenegado()
+    exigir_operacion_sensible(request)
+    if tipo not in {t.value for t in TipoDerecho}:
+        raise ClaveRechazada(["Tipo de solicitud no válido."])
+    ahora = reloj.ahora()
+    with transaction.atomic():
+        s = SolicitudDerechos.objects.create(
+            titular=usuario,
+            tipo=tipo,
+            detalle=(detalle or "").strip()[:500],
+            creada=ahora,
+            responder_requerimiento_antes_de=ahora + timedelta(days=P.derechos_plazo_requerimiento_dias),
+            atender_antes_de=ahora + timedelta(days=P.derechos_plazo_atencion_dias),
+        )
+        auditoria.registrar(
+            accion=Acciones.SOLICITUD_DERECHOS, actor=usuario, recurso_tipo="solicitud_derechos", recurso_id=s.id, detalle={"tipo": tipo}
+        )
+    notificaciones.enviar(
+        plantilla="derechos_recibida",
+        canal="CORREO",
+        destino=usuario.correo,
+        parametros={"fecha": zona.localtime(s.atender_antes_de).strftime("%d/%m/%Y")},
+        destinatario_id=usuario.id,
+    )
+    return _vista_derechos(s)
+
+
+def listar_solicitudes_derechos(usuario) -> list[SolicitudDerechosVista]:
+    if not politicas.puede_solicitar_derechos(usuario):
+        raise AccesoDenegado()
+    from .modelos import SolicitudDerechos
+
+    return [_vista_derechos(s) for s in SolicitudDerechos.objects.filter(titular=usuario).order_by("-creada")[:50]]
+
+
+# --- Auditoría (E19) --------------------------------------------------------------------------------------------------------------------------
+
+
+def consultar_auditoria(usuario, *, accion=None, resultado=None, actor_id=None, desde=None, hasta=None, pagina: int = 1):
+    """Lectura de los registros por auditor/DPD. Consultar la auditoría también queda auditado."""
+    if not politicas.puede_ver_auditoria(usuario):
+        auditoria.registrar(accion=Acciones.ACCESO_DENEGADO, actor=usuario, resultado=auditoria.DENEGADO, recurso_tipo="auditoria")
+        raise AccesoDenegado()
+    if accion is not None and accion not in auditoria.acciones_validas():
+        raise ClaveRechazada(["Acción no válida."])
+    if resultado is not None and resultado not in (auditoria.OK, auditoria.DENEGADO, auditoria.ERROR):
+        raise ClaveRechazada(["Resultado no válido."])
+    if desde is not None and not hasattr(desde, "hour"):  # una fecha: desde el inicio de ese día
+        desde = zona.make_aware(datetime.combine(desde, datetime.min.time()))
+    if hasta is not None and not hasattr(hasta, "hour"):  # una fecha: hasta el final de ese día
+        hasta = zona.make_aware(datetime.combine(hasta, datetime.min.time())) + timedelta(days=1)
+    auditoria.registrar(
+        accion=Acciones.ACCESO_AUDITORIA,
+        actor=usuario,
+        recurso_tipo="auditoria",
+        detalle={"accion": accion or "", "resultado": resultado or "", "pagina": pagina},
+    )
+    return auditoria.listar_eventos(accion=accion, resultado=resultado, actor_id=actor_id, desde=desde, hasta=hasta, pagina=pagina)
+
+
+def cerrar_sesiones(request, alcance: str = "actual", sesion_id=None) -> bool:
+    """E05: cierra la sesión actual, UNA de las propias (por id) o TODAS. Devuelve False si la sesión indicada no es suya."""
+    if alcance == "todas":
+        usuario = request.user
+        with transaction.atomic():
+            n = _revocar_todas(usuario, "CIERRE_DE_TODAS")
+            auditoria.registrar(accion=Acciones.SESION_REVOCADA, actor=usuario, detalle={"motivo": "CIERRE_DE_TODAS", "cantidad": n})
+        django_logout(request)
+        return True
+    if alcance == "una":
+        return revocar_sesion(request, sesion_id)
+    cerrar_sesion(request)
+    return True

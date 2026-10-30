@@ -5,13 +5,14 @@ Todos los mensajes de error son genéricos: no revelan si una cédula existe (CA
 """
 from django.conf import settings
 from django.contrib import messages
-from django.contrib.auth.decorators import login_required
 from django.http import Http404, HttpResponse
 from django.shortcuts import redirect, render
 from django.urls import reverse
 from django.utils.http import url_has_allowed_host_and_scheme, urlencode
 from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_http_methods, require_POST
+
+from config.endpoints import endpoint
 
 from . import esquemas, servicios
 
@@ -56,6 +57,7 @@ def _responder_login(request, resultado: servicios.ResultadoLogin, destino: str)
 # --- Activación ------------------------------------------------------------------------------------------------------------
 
 
+@endpoint("S02")
 @require_http_methods(["GET", "POST"])
 def solicitar_activacion(request):
     form = esquemas.SolicitudActivacionForm(request.POST or None)
@@ -69,6 +71,7 @@ def solicitar_activacion(request):
     return render(request, "cuentas/solicitar_activacion.html", {"form": form})
 
 
+@endpoint("E02")
 @require_http_methods(["GET", "POST"])
 def confirmar_activacion(request):
     inicial = {"cedula": request.GET.get("cedula", "")[:10]}
@@ -93,6 +96,7 @@ def confirmar_activacion(request):
 # --- Ingreso y segundo factor --------------------------------------------------------------------------------------------
 
 
+@endpoint("E03")
 @require_http_methods(["GET", "POST"])
 @never_cache
 def ingresar(request):
@@ -115,6 +119,7 @@ def ingresar(request):
     return render(request, "cuentas/ingresar.html", {"form": form, "next": request.GET.get("next", "")})
 
 
+@endpoint("E04")
 @require_http_methods(["GET", "POST"])
 @never_cache
 def verificar_mfa(request):
@@ -135,6 +140,7 @@ def verificar_mfa(request):
     return render(request, "cuentas/mfa.html", {"form": form, "next": request.GET.get("next", "")})
 
 
+@endpoint("S03")
 @require_http_methods(["GET", "POST"])
 @never_cache
 def configurar_mfa(request):
@@ -160,7 +166,7 @@ def configurar_mfa(request):
     return render(request, "cuentas/mfa_configurar.html", {"form": form, "configuracion": configuracion, "next": request.GET.get("next", "")})
 
 
-@login_required
+@endpoint("S04")
 @require_http_methods(["GET", "POST"])
 @never_cache
 def reautenticar(request):
@@ -177,32 +183,30 @@ def reautenticar(request):
     return render(request, "cuentas/reautenticar.html", {"form": form, "next": request.GET.get("next", "")})
 
 
+@endpoint("E05")
 @require_POST
 def salir(request):
-    servicios.cerrar_sesion(request)
+    """Cierra la sesión actual, UNA de las propias (campo `sesion`) o TODAS (alcance=todas)."""
+    form = esquemas.CerrarSesionForm(request.POST)
+    if not form.is_valid():
+        return redirect("cuentas:sesiones")
+    alcance = form.cleaned_data["alcance"] or ("una" if form.cleaned_data["sesion"] else "actual")
+    if not servicios.cerrar_sesiones(request, alcance, form.cleaned_data["sesion"]):
+        raise Http404()  # misma respuesta para "no existe" y "no es suya"
     messages.info(request, "Sesión cerrada.")
-    return redirect("cuentas:ingresar")
+    return redirect("cuentas:sesiones" if request.user.is_authenticated else "cuentas:ingresar")
 
 
 # --- Sesiones y clave -------------------------------------------------------------------------------------------------------
 
 
-@login_required
+@endpoint("S05")
 @require_http_methods(["GET"])
 def sesiones(request):
     return render(request, "cuentas/sesiones.html", {"sesiones": servicios.listar_sesiones(request)})
 
 
-@login_required
-@require_POST
-def revocar_sesion(request, sesion_id):
-    if not servicios.revocar_sesion(request, sesion_id):
-        raise Http404()  # misma respuesta para "no existe" y "no es suya"
-    messages.success(request, "La sesión fue cerrada.")
-    return redirect("cuentas:sesiones" if request.user.is_authenticated else "cuentas:ingresar")
-
-
-@login_required
+@endpoint("S07")
 @require_http_methods(["GET", "POST"])
 @never_cache
 def cambiar_clave(request):
@@ -230,6 +234,7 @@ def cambiar_clave(request):
 # --- Recuperación ------------------------------------------------------------------------------------------------------------
 
 
+@endpoint("S08")
 @require_http_methods(["GET", "POST"])
 def solicitar_recuperacion(request):
     form = esquemas.SolicitudRecuperacionForm(request.POST or None)
@@ -242,6 +247,7 @@ def solicitar_recuperacion(request):
     return render(request, "cuentas/solicitar_recuperacion.html", {"form": form})
 
 
+@endpoint("S09")
 @require_http_methods(["GET", "POST"])
 @never_cache
 def restablecer_clave(request, token):
@@ -267,3 +273,44 @@ def restablecer_clave(request, token):
     respuesta = render(request, "cuentas/restablecer_clave.html", {"form": form})
     respuesta["Referrer-Policy"] = "no-referrer"  # el token está en la URL: no debe viajar a terceros por Referer
     return respuesta
+
+
+# --- E15: derechos del titular -------------------------------------------------------------------------------------------------------------
+
+
+@endpoint("E15")
+@never_cache
+def solicitudes_derechos(request):
+    form = esquemas.DerechosForm(request.POST if request.method == "POST" else None)
+    try:
+        if request.method == "POST" and form.is_valid():
+            servicios.registrar_solicitud_derechos(request, form.cleaned_data["tipo"], form.cleaned_data["detalle"])
+            messages.success(request, "Registramos su solicitud. Le responderemos dentro de los plazos legales.")
+            return redirect("cuentas:solicitudes_derechos")
+        solicitudes = servicios.listar_solicitudes_derechos(request.user)
+    except servicios.ReautenticacionRequerida as error:
+        destino = "cuentas:mfa_configurar" if error.configurar_mfa else "cuentas:reautenticar"
+        return redirect(f"{reverse(destino)}?{urlencode({'next': reverse('cuentas:solicitudes_derechos')})}")
+    except servicios.AccesoDenegado:
+        return render(request, "errores/403.html", status=403)
+    return render(request, "cuentas/solicitudes_derechos.html", {"form": form, "solicitudes": solicitudes})
+
+
+# --- E19: auditoría (solo lectura) -------------------------------------------------------------------------------------------------------------
+
+
+@endpoint("E19")
+def auditoria(request):
+    form = esquemas.AuditoriaForm(request.GET)
+    if not form.is_valid():
+        return render(request, "errores/404.html", status=400)
+    d = form.cleaned_data
+    try:
+        pagina = servicios.consultar_auditoria(
+            request.user, accion=d["accion"] or None, resultado=d["resultado"] or None, actor_id=d["actor"], desde=d["desde"], hasta=d["hasta"], pagina=d["pagina"] or 1,
+        )
+    except servicios.AccesoDenegado:
+        return render(request, "errores/403.html", status=403)
+    except servicios.ClaveRechazada:
+        return render(request, "errores/404.html", status=400)
+    return render(request, "cuentas/auditoria.html", {"pagina": pagina, "form": form})

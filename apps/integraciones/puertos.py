@@ -26,3 +26,17 @@ class DatosAfiliacion:
 class PuertoAfiliacion(Protocol):
     def consultar(self, cedula: str) -> DatosAfiliacion | None:
         """Devuelve los datos, o None si la cédula no consta como afiliada. Lanza ServicioNoDisponible si falla."""
+
+
+@dataclass(frozen=True)
+class ConfirmacionAgenda:
+    estado: str  # CONFIRMADA | RECHAZADA
+    referencia: str
+
+
+class PuertoAgenda(Protocol):
+    def confirmar(self, *, turno_ref: str, franja_ref: str, afiliado_ref: str, clave: str) -> ConfirmacionAgenda:
+        """Pide al sistema de agenda confirmar el cupo. Idempotente por `clave`. Lanza ServicioNoDisponible si falla."""
+
+    def cancelar(self, *, turno_ref: str) -> None:
+        """Libera el cupo en la agenda. Lanza ServicioNoDisponible si falla."""

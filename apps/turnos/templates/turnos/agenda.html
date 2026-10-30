@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block titulo %}Agenda de la unidad{% endblock %}
+{% block contenido %}
+  <h1>Agenda de la unidad</h1>
+  <form method="get" action="{% url 'turnos:agenda' %}" class="tarjeta">
+    <div class="campo"><label for="fecha_agenda">Fecha</label><input id="fecha_agenda" type="date" name="fecha" value="{{ agenda.fecha|date:'Y-m-d' }}"></div>
+    <button class="boton" type="submit">Ver</button>
+  </form>
+  <div class="tarjeta">
+    <table>
+      <caption class="ayuda">{{ agenda.total }} turno(s) · datos de contacto enmascarados · sin datos clínicos</caption>
+      <thead><tr><th scope="col">Hora</th><th scope="col">Persona</th><th scope="col">Especialidad</th><th scope="col">Estado</th><th scope="col">Registrar</th></tr></thead>
+      <tbody>
+      {% for fila in agenda.filas %}
+        <tr>
+          <td>{{ fila.inicio|date:"H:i" }}</td>
+          <td>{{ fila.persona }} <span class="ayuda">({{ fila.cedula_enmascarada }})</span></td>
+          <td>{{ fila.especialidad }}</td><td>{{ fila.estado_texto }}</td>
+          <td>
+            {% if fila.puede_registrar or fila.justificable %}
+            <form method="post" action="{% url 'turnos:asistencia' fila.turno_id %}">{% csrf_token %}
+              <label for="r_{{ fila.turno_id }}" class="ayuda">Resultado</label>
+              <select id="r_{{ fila.turno_id }}" name="resultado">
+                {% if fila.puede_registrar %}<option value="ATENDIDO">Asistió</option><option value="NO_ASISTIO">No asistió</option>{% endif %}
+                {% if fila.justificable %}<option value="JUSTIFICADO">Justificó (72 h)</option>{% endif %}
+              </select>
+              <label for="j_{{ fila.turno_id }}" class="ayuda">Justificación</label>
+              <select id="j_{{ fila.turno_id }}" name="justificacion_tipo"><option value="">—</option><option value="DOCUMENTO">Documento</option><option value="DECLARACION">Declaración</option></select>
+              <button class="boton secundario" type="submit">Guardar</button>
+            </form>
+            {% endif %}
+          </td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="5">No hay turnos para esta fecha.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    <div class="acciones">
+      {% if agenda.pagina > 1 %}<a href="?fecha={{ agenda.fecha|date:'Y-m-d' }}&amp;pagina={{ agenda.pagina|add:'-1' }}">Anterior</a>{% endif %}
+      {% if agenda.hay_siguiente %}<a href="?fecha={{ agenda.fecha|date:'Y-m-d' }}&amp;pagina={{ agenda.pagina|add:'1' }}">Siguiente</a>{% endif %}
+    </div>
+  </div>
+{% endblock %}

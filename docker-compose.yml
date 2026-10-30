@@ -36,6 +36,9 @@ x-app-entorno: &app-entorno
   AFILIACION_ADAPTADOR: http
   AFILIACION_URL: http://afiliacion_sim:9001
   SERVICIOS_CLAVE_AFILIACION: ${SERVICIOS_CLAVE_AFILIACION}
+  AGENDA_ADAPTADOR: http
+  AGENDA_URL: http://agenda_sim:9002
+  SERVICIOS_CLAVE_AGENDA: ${SERVICIOS_CLAVE_AGENDA}
   NOTIFICACIONES_ADAPTADOR: ${NOTIFICACIONES_ADAPTADOR:-consola}
 
 services:
@@ -53,7 +56,7 @@ services:
       app:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "wget", "-q", "--spider", "--no-check-certificate", "https://127.0.0.1:8443/salud/"]
+      test: ["CMD", "wget", "-q", "--spider", "--no-check-certificate", "https://127.0.0.1:8443/salud"]
       interval: 15s
       timeout: 4s
       retries: 3
@@ -77,6 +80,29 @@ services:
         condition: service_healthy
       afiliacion_sim:
         condition: service_started
+      agenda_sim:
+        condition: service_started
+    restart: unless-stopped
+
+  # Tareas programadas: expira turnos sin confirmar (RT-05) y concilia los PENDIENTES con la agenda.
+  tareas:
+    build:
+      context: .
+      target: final
+    command: ["python", "manage.py", "ejecutar_tareas", "--cada", "60"]
+    environment:
+      <<: *app-entorno
+      DB_USUARIO: iess_app
+      DB_CLAVE: ${DB_CLAVE}
+    networks: [datos, externos]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import os; assert os.path.exists('/tmp/tareas.vivo')"]
+      interval: 30s
+      timeout: 4s
+      retries: 3
+    depends_on:
+      migrar:
+        condition: service_completed_successfully
     restart: unless-stopped
 
   # Aplica migraciones con el rol dueño del esquema (la aplicación nunca puede hacer DDL).
@@ -143,6 +169,22 @@ services:
     networks: [externos]
     healthcheck:
       test: ["CMD", "python", "-c", "import socket; socket.create_connection(('127.0.0.1', 9001), 2).close()"]
+      interval: 15s
+      timeout: 4s
+      retries: 3
+    restart: unless-stopped
+
+  agenda_sim:
+    build:
+      context: .
+      target: final
+    command: ["python", "-m", "apps.integraciones.simulados.agenda_servidor"]
+    environment:
+      SERVICIOS_CLAVE_AGENDA: ${SERVICIOS_CLAVE_AGENDA}
+      AGENDA_SIM_PUERTO: "9002"
+    networks: [externos]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import socket; socket.create_connection(('127.0.0.1', 9002), 2).close()"]
       interval: 15s
       timeout: 4s
       retries: 3

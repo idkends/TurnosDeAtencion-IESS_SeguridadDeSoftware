@@ -39,6 +39,8 @@ class Usuario(AbstractBaseUser):
     )
     creado = models.DateTimeField(auto_now_add=True)
     clave_cambiada_en = models.DateTimeField(null=True, blank=True)
+    # RT-11: grupos de atención prioritaria (Constitución art. 35): cupos reservados y sin restricciones automáticas.
+    atencion_prioritaria = models.BooleanField(default=False)
     # Segundo factor (TOTP): secreto cifrado con Fernet; `totp_ultimo_paso` impide reutilizar un código.
     totp_secreto_cifrado = models.TextField(blank=True)
     totp_confirmado = models.BooleanField(default=False)
@@ -135,3 +137,31 @@ class SesionDispositivo(models.Model):
         db_table = "cuentas_sesion_dispositivo"
         default_permissions = ()
         indexes = [models.Index(fields=["usuario", "revocada_en"], name="ix_sesion_usuario_activa")]
+
+
+class TipoDerecho(models.TextChoices):
+    ACCESO = "ACCESO", "Acceso"
+    RECTIFICACION = "RECTIFICACION", "Rectificación"
+    ELIMINACION = "ELIMINACION", "Eliminación"
+    OPOSICION = "OPOSICION", "Oposición"
+
+
+class SolicitudDerechos(models.Model):
+    """Registro de una solicitud de derechos del titular (LOPDP arts. 12-16). Plazos: 10 y 15 días."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    titular = models.ForeignKey(Usuario, on_delete=models.PROTECT, related_name="solicitudes_derechos")
+    tipo = models.CharField(max_length=14, choices=TipoDerecho.choices)
+    detalle = models.CharField(max_length=500, blank=True)
+    estado = models.CharField(max_length=12, default="RECIBIDA")
+    creada = models.DateTimeField()
+    responder_requerimiento_antes_de = models.DateTimeField()
+    atender_antes_de = models.DateTimeField()
+
+    class Meta:
+        db_table = "cuentas_solicitud_derechos"
+        default_permissions = ()
+        constraints = [
+            models.CheckConstraint(condition=Q(tipo__in=[t.value for t in TipoDerecho]), name="ck_derechos_tipo"),
+            models.CheckConstraint(condition=Q(estado__in=["RECIBIDA", "EN_ATENCION", "ATENDIDA"]), name="ck_derechos_estado"),
+        ]

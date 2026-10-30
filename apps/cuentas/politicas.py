@@ -107,3 +107,113 @@ def sesion_apta_para_operacion_sensible(*, ahora_ts: float, ultima_actividad_ts:
     if mfa_en_ts is None or ahora_ts - mfa_en_ts > P.mfa_reciente_minutos * 60:
         return "MFA_NO_RECIENTE"
     return ""
+
+
+# --- Turnos, delegaciones e interno (etapa 2) ----------------------------------------------------------------------------------------
+# Siguen siendo funciones PURAS: los hechos que salen de la base (¿delegación vigente?, ¿justificación escrita?) los
+# resuelven los servicios y se pasan aquí.
+
+ROLES_CIUDADANOS = frozenset({Rol.AFILIADO, Rol.REPRESENTANTE})
+
+
+def _es(usuario, *roles) -> bool:
+    return _activo(usuario) and usuario.rol in roles
+
+
+def puede_reservar_en_linea(usuario) -> bool:
+    """La reserva en línea es de afiliados y representantes; los funcionarios no reservan desde el portal."""
+    return _es(usuario, Rol.AFILIADO, Rol.REPRESENTANTE)
+
+
+def puede_gestionar_turno(usuario, turno, *, delegacion_vigente: bool = False) -> bool:
+    """Confirmar, cancelar, reprogramar: SOLO el titular o su representante con delegación vigente (nunca el personal)."""
+    if not puede_reservar_en_linea(usuario):
+        return False
+    if usuario.id == turno.afiliado_id:
+        return True
+    return delegacion_vigente and nivel(usuario, Permiso.CITAS_OTRA_PERSONA) == "C"
+
+
+def puede_actuar_por(usuario, afiliado_id, *, delegacion_vigente: bool = False) -> bool:
+    """¿Puede `usuario` operar la agenda de `afiliado_id`? (RT-08: los topes se aplican al atendido, no a quien opera)."""
+    if not puede_reservar_en_linea(usuario):
+        return False
+    return usuario.id == afiliado_id or (delegacion_vigente and nivel(usuario, Permiso.CITAS_OTRA_PERSONA) == "C")
+
+
+def puede_apelar(usuario, afiliado_id) -> bool:
+    """Solo el propio titular apela sus restricciones."""
+    return puede_reservar_en_linea(usuario) and usuario.id == afiliado_id
+
+
+def puede_registrar_atencion(usuario, turno, *, relacion_asistencial: bool = False) -> bool:
+    """Recepción de la misma unidad (o el profesional con relación asistencial) registra asistió / no asistió."""
+    if not _activo(usuario) or usuario.establecimiento_id is None:
+        return False
+    misma_unidad = usuario.establecimiento_id == turno.establecimiento_id
+    if usuario.rol == Rol.RECEPCION:
+        return misma_unidad
+    if usuario.rol == Rol.PROFESIONAL:
+        return misma_unidad and relacion_asistencial
+    return False
+
+
+def puede_resolver_apelacion(usuario) -> bool:
+    """Una persona de la unidad (recepción) resuelve; el afiliado nunca resuelve su propia apelación."""
+    return _es(usuario, Rol.RECEPCION) and usuario.establecimiento_id is not None
+
+
+def puede_ver_agenda_unidad(usuario, establecimiento_id) -> bool:
+    """Recepción, profesional y administración de oferta ven la agenda de SU unidad (nivel U)."""
+    if not _activo(usuario) or usuario.establecimiento_id is None:
+        return False
+    return nivel(usuario, Permiso.AGENDA_UNIDAD) == "U" and usuario.establecimiento_id == establecimiento_id
+
+
+def puede_consultar_contacto(usuario) -> str:
+    """Nivel con el que se consultan datos de contacto de afiliados: "M" (enmascarado) para recepción y soporte."""
+    if not _es(usuario, Rol.RECEPCION, Rol.SOPORTE):
+        return ""
+    return nivel(usuario, Permiso.DATOS_CONTACTO)
+
+
+def puede_ver_contacto_completo(usuario, *, justificacion_registrada: bool) -> bool:
+    """Los datos completos solo con justificación registrada, y solo para recepción (el soporte nunca los ve completos)."""
+    return justificacion_registrada and _es(usuario, Rol.RECEPCION)
+
+
+def puede_ver_auditoria(usuario) -> bool:
+    """Registros de auditoría: auditor y DPD, solo lectura."""
+    return nivel(usuario, Permiso.REGISTROS_AUDITORIA) == "L"
+
+
+def puede_crear_delegacion(usuario) -> bool:
+    return puede_reservar_en_linea(usuario)
+
+
+def puede_revocar_delegacion(usuario, delegacion) -> bool:
+    """Revoca el titular o el propio representante; nadie más."""
+    return puede_reservar_en_linea(usuario) and usuario.id in (delegacion.titular_id, delegacion.representante_id)
+
+
+def puede_solicitar_derechos(usuario) -> bool:
+    """Las solicitudes de derechos (acceso, rectificación, eliminación, oposición) son del titular."""
+    return puede_reservar_en_linea(usuario)
+
+
+# --- Enmascaramiento (soporte y recepción ven datos enmascarados) ------------------------------------------------------------
+
+
+def enmascarar_cedula(cedula: str) -> str:
+    return f"{cedula[:3]}*****{cedula[-2:]}" if len(cedula) == 10 else "**********"
+
+
+def enmascarar_correo(correo: str) -> str:
+    if "@" not in correo:
+        return ""
+    local, dominio = correo.split("@", 1)
+    return f"{local[:1]}***@{dominio}"
+
+
+def enmascarar_telefono(telefono: str) -> str:
+    return f"{telefono[:3]}****{telefono[-2:]}" if len(telefono) >= 7 else "****"

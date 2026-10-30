@@ -45,7 +45,7 @@ def test_T03_sesion_vencida_a_las_24_horas_es_rechazada_por_el_servidor(crear_us
     assert cliente.get(reverse("cuentas:sesiones")).status_code == 200  # con sesión válida entra
     Session.objects.update(expire_date=reloj.ahora() - timedelta(seconds=1))  # vence en la base
     respuesta = cliente.get(reverse("cuentas:sesiones"))
-    assert respuesta.status_code == 302 and "/cuenta/ingresar/" in respuesta["Location"]
+    assert respuesta.status_code == 302 and "/sesion" in respuesta["Location"]
 
 
 def test_T03_el_middleware_cierra_la_sesion_pasadas_24_horas_aunque_la_base_no_la_haya_borrado(crear_usuario, clave_buena):

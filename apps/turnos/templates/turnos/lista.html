@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block titulo %}Mis turnos{% endblock %}
+{% block contenido %}
+  <h1>Mis turnos</h1>
+  {% include "turnos/_restricciones.html" with restricciones=pantalla.restricciones %}
+  {% if pantalla.representados %}
+    <form method="get" action="{% url 'turnos:turnos' %}" class="tarjeta">
+      <div class="campo">
+        <label for="f_afiliado">Ver los turnos de</label>
+        <select id="f_afiliado" name="afiliado">
+          <option value="">Yo</option>
+          {% for p in pantalla.representados %}<option value="{{ p.id }}"{% if p.id == pantalla.afiliado_id %} selected{% endif %}>{{ p.nombre_completo }}</option>{% endfor %}
+        </select>
+      </div>
+      <button class="boton" type="submit">Ver</button>
+    </form>
+  {% endif %}
+  <div class="tarjeta">
+    <table>
+      <caption class="ayuda">{{ pantalla.pagina.total }} turno(s)</caption>
+      <thead><tr><th scope="col">Fecha y hora</th><th scope="col">Especialidad</th><th scope="col">Establecimiento</th><th scope="col">Estado</th><th scope="col"><span class="ayuda">Detalle</span></th></tr></thead>
+      <tbody>
+      {% for t in pantalla.pagina.turnos %}
+        <tr>
+          <td>{{ t.inicio|date:"d/m/Y H:i" }}</td><td>{{ t.especialidad }}</td><td>{{ t.establecimiento }}</td><td>{{ t.estado_texto }}</td>
+          <td><a href="{% url 'turnos:detalle' t.id %}">Abrir</a></td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="5">No hay turnos. <a href="{% url 'turnos:disponibilidad' %}">Buscar disponibilidad</a>.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    <div class="acciones">
+      {% if pantalla.pagina.pagina > 1 %}<a href="?pagina={{ pantalla.pagina.pagina|add:'-1' }}">Anterior</a>{% endif %}
+      {% if pantalla.pagina.hay_siguiente %}<a href="?pagina={{ pantalla.pagina.pagina|add:'1' }}">Siguiente</a>{% endif %}
+    </div>
+  </div>
+{% endblock %}

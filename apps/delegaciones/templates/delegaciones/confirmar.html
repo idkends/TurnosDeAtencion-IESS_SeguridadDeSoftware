@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block titulo %}Confirmar delegación{% endblock %}
+{% block contenido %}
+  <h1>Confirme a quién delega</h1>
+  <div class="tarjeta">
+    <p>Va a permitir que <strong>{{ persona.nombre_completo }}</strong> gestione su agenda de citas durante 12 meses. No tendrá acceso a información clínica.</p>
+    <form method="post" action="{% url 'delegaciones:lista' %}">{% csrf_token %}
+      <input type="hidden" name="paso" value="confirmar">
+      <input type="hidden" name="cedula" value="{{ cedula }}">
+      <div class="acciones">
+        <button class="boton" type="submit">Sí, es la persona correcta</button>
+        <a class="boton secundario" href="{% url 'delegaciones:lista' %}">Cancelar</a>
+      </div>
+    </form>
+  </div>
+{% endblock %}

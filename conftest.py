@@ -48,6 +48,7 @@ def entorno_limpio():
     reloj.restablecer()
     notificaciones.bandeja_memoria().limpiar()
     integraciones.afiliacion_memoria().limpiar()
+    integraciones.agenda_memoria().limpiar()
     token = contexto.fijar(ip="203.0.113.7", dispositivo="")
     yield
     contexto.restablecer(token)
@@ -119,5 +120,36 @@ def crear_usuario(db):
         usuario.set_password(clave)
         usuario.save()
         return usuario
+
+    return _crear
+
+
+# --- Fixtures de turnos (etapa 2) ----------------------------------------------------------------------------------------------------
+
+
+@pytest.fixture
+def oferta(db):
+    from tests.ayudas import crear_oferta
+
+    return crear_oferta()
+
+
+@pytest.fixture
+def ciudadano(crear_usuario):
+    """Afiliado ACTIVO con afiliación vigente en el servicio simulado."""
+    from tests.ayudas import registrar_afiliacion
+
+    def _crear(rol="AFILIADO", *, vigente=True, **extra):
+        usuario = crear_usuario(rol, **extra)
+        registrar_afiliacion(usuario, vigente=vigente)
+        return usuario
+
+    return _crear
+
+
+@pytest.fixture
+def funcionario(crear_usuario):
+    def _crear(rol="RECEPCION", establecimiento=None, **extra):
+        return crear_usuario(rol, establecimiento=establecimiento, **extra)
 
     return _crear

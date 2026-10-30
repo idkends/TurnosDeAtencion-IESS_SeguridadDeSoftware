@@ -1,6 +1,7 @@
 """Esquemas de entrada (formularios): validan forma y tamaño. Las reglas de negocio viven en `servicios.py`."""
 from django import forms
 
+from config.formularios import FormularioEstricto
 from config.parametros import P
 
 _CAMPO_CEDULA = dict(
@@ -79,3 +80,22 @@ class RestablecerClaveForm(_ConClaveRepetida):
         max_length=30,
         widget=forms.TextInput(attrs={"autocomplete": "one-time-code"}),
     )
+
+
+class CerrarSesionForm(FormularioEstricto):
+    alcance = forms.ChoiceField(required=False, choices=[("actual", "actual"), ("una", "una"), ("todas", "todas")])
+    sesion = forms.UUIDField(required=False)
+
+
+class DerechosForm(FormularioEstricto):
+    tipo = forms.ChoiceField(label="Qué desea solicitar", choices=[("ACCESO", "Acceso a mis datos"), ("RECTIFICACION", "Rectificación"), ("ELIMINACION", "Eliminación"), ("OPOSICION", "Oposición")])
+    detalle = forms.CharField(label="Detalle (opcional)", required=False, max_length=500, strip=True, widget=forms.Textarea(attrs={"rows": 3, "maxlength": 500}))
+
+
+class AuditoriaForm(FormularioEstricto):
+    accion = forms.RegexField(regex=r"^[A-Z_]{3,60}$", required=False)
+    resultado = forms.ChoiceField(required=False, choices=[("", ""), ("OK", "OK"), ("DENEGADO", "DENEGADO"), ("ERROR", "ERROR")])
+    actor = forms.UUIDField(required=False)
+    desde = forms.DateField(required=False, input_formats=["%Y-%m-%d"])
+    hasta = forms.DateField(required=False, input_formats=["%Y-%m-%d"])
+    pagina = forms.IntegerField(required=False, min_value=1, max_value=100_000)

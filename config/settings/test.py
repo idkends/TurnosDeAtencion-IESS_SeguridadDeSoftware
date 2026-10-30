@@ -32,5 +32,6 @@ STORAGES = {
 }
 NOTIFICACIONES_ADAPTADOR = "memoria"
 AFILIACION_ADAPTADOR = "memoria"
+AGENDA_ADAPTADOR = "memoria"
 
 MIDDLEWARE = [m for m in MIDDLEWARE if "whitenoise" not in m]  # sin directorio de estáticos compilados en pruebas

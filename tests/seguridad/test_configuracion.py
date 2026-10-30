@@ -176,7 +176,7 @@ def test_con_token_csrf_valido_el_post_se_acepta(crear_usuario, clave_buena):
     cliente = Client(enforce_csrf_checks=True)
     token = re.search(r'name="csrfmiddlewaretoken" value="([^"]+)"', cliente.get(reverse("cuentas:ingresar"), secure=True).content.decode()).group(1)
     r = cliente.post(reverse("cuentas:ingresar"), {"cedula": usuario.cedula, "clave": clave_buena, "csrfmiddlewaretoken": token}, secure=True,
-                       HTTP_REFERER="https://testserver/cuenta/ingresar/")  # los navegadores envían Referer en POST de mismo origen
+                       HTTP_REFERER="https://testserver/sesion")  # los navegadores envían Referer en POST de mismo origen
     assert r.status_code == 302
 
 
@@ -215,7 +215,7 @@ def test_el_cuerpo_de_la_solicitud_esta_limitado_a_64_KB():
 def test_las_rutas_protegidas_exigen_sesion():
     for nombre in ("cuentas:sesiones", "cuentas:cambiar_clave", "cuentas:reautenticar"):
         r = Client().get(reverse(nombre), secure=True)
-        assert r.status_code == 302 and "/cuenta/ingresar/" in r["Location"], nombre
+        assert r.status_code == 302 and "/sesion" in r["Location"], nombre
 
 
 def test_inyeccion_en_login_falla_sin_error_tecnico_visible():

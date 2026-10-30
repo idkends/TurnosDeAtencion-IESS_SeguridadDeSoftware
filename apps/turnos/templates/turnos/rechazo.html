@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block titulo %}No fue posible{% endblock %}
+{% block contenido %}
+  <h1>No fue posible completar la operación</h1>
+  <div class="tarjeta" role="alert">
+    <p>{{ error.mensaje }}</p>
+    {% if error.ofrecer_presencial %}<p>Puede gestionar su cita por el canal presencial o telefónico de su unidad de atención: allí nunca se aplican bloqueos automáticos.</p>{% endif %}
+  </div>
+  <p><a href="{% url 'turnos:turnos' %}">Mis turnos</a> · <a href="{% url 'turnos:disponibilidad' %}">Buscar disponibilidad</a></p>
+{% endblock %}

@@ -33,3 +33,19 @@ class Notificacion(models.Model):
             models.CheckConstraint(condition=Q(canal__in=["CORREO", "SMS"]), name="ck_notif_canal"),
             models.CheckConstraint(condition=Q(estado__in=["ENVIADA", "FALLIDA"]), name="ck_notif_estado"),
         ]
+
+
+class TokenEnlace(models.Model):
+    """Enlace de un solo uso (128 bits, 24 h) de un aviso: solo lleva a iniciar sesión, nunca abre datos (E20, R03)."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    destinatario = models.ForeignKey("cuentas.Usuario", on_delete=models.CASCADE, related_name="tokens_enlace")
+    turno = models.ForeignKey("turnos.Turno", on_delete=models.CASCADE, related_name="tokens_enlace")
+    token_hash = models.CharField(max_length=64, unique=True)
+    creado = models.DateTimeField()
+    expira = models.DateTimeField()
+    usado = models.BooleanField(default=False)
+
+    class Meta:
+        db_table = "notificaciones_token_enlace"
+        default_permissions = ()

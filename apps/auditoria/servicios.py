@@ -51,6 +51,34 @@ class Acciones:
     RECUPERACION_FALLIDA = "RECUPERACION_FALLIDA"
     ACCESO_DENEGADO = "ACCESO_DENEGADO"
     SIEMBRA = "SIEMBRA"
+    # --- Turnos y delegaciones (etapa 2) ---
+    RESERVA_CREADA = "RESERVA_CREADA"
+    RESERVA_RECHAZADA = "RESERVA_RECHAZADA"
+    RESERVA_REPETIDA = "RESERVA_REPETIDA"
+    TURNO_RESERVADO = "TURNO_RESERVADO"
+    TURNO_CONFIRMADO = "TURNO_CONFIRMADO"
+    TURNO_CANCELADO = "TURNO_CANCELADO"
+    CANCELACION_DESHECHA = "CANCELACION_DESHECHA"
+    TURNO_REPROGRAMADO = "TURNO_REPROGRAMADO"
+    TURNO_EXPIRADO = "TURNO_EXPIRADO"
+    TURNO_CANCELADO_INSTITUCION = "TURNO_CANCELADO_INSTITUCION"
+    AGENDA_NO_DISPONIBLE = "AGENDA_NO_DISPONIBLE"
+    AFILIACION_NO_DISPONIBLE = "AFILIACION_NO_DISPONIBLE"
+    ASISTENCIA_REGISTRADA = "ASISTENCIA_REGISTRADA"
+    INASISTENCIA_REGISTRADA = "INASISTENCIA_REGISTRADA"
+    INASISTENCIA_JUSTIFICADA = "INASISTENCIA_JUSTIFICADA"
+    INASISTENCIAS_REVISION_HUMANA = "INASISTENCIAS_REVISION_HUMANA"
+    RESTRICCION_APLICADA = "RESTRICCION_APLICADA"
+    RESTRICCION_LEVANTADA = "RESTRICCION_LEVANTADA"
+    APELACION_CREADA = "APELACION_CREADA"
+    APELACION_RESUELTA = "APELACION_RESUELTA"
+    DELEGACION_CREADA = "DELEGACION_CREADA"
+    DELEGACION_REVOCADA = "DELEGACION_REVOCADA"
+    DELEGACION_RECHAZADA = "DELEGACION_RECHAZADA"
+    CONSULTA_CONTACTO = "CONSULTA_CONTACTO"
+    SOLICITUD_DERECHOS = "SOLICITUD_DERECHOS"
+    ENLACE_USADO = "ENLACE_USADO"
+    ACCESO_AUDITORIA = "ACCESO_AUDITORIA"
 
 
 _CLAVES_SENSIBLES = re.compile(
@@ -180,3 +208,47 @@ def verificar_cadena() -> ResultadoVerificacion:
             return ResultadoVerificacion(False, revisados, evento.secuencia, "contenido alterado")
         anterior = evento.hash
     return ResultadoVerificacion(True, revisados)
+
+
+# --- Consulta (E19): solo lectura, con filtros en lista blanca y paginación --------------------------------------------------------
+
+
+def acciones_validas() -> set[str]:
+    return {v for k, v in vars(Acciones).items() if k.isupper() and isinstance(v, str)}
+
+
+@dataclass(frozen=True)
+class PaginaEventos:
+    eventos: list
+    pagina: int
+    tamano: int
+    total: int
+
+    @property
+    def hay_siguiente(self) -> bool:
+        return self.pagina * self.tamano < self.total
+
+
+def listar_eventos(*, accion=None, resultado=None, actor_id=None, desde=None, hasta=None, pagina: int = 1, tamano: int | None = None) -> PaginaEventos:
+    """Eventos más recientes primero. Los filtros ya vienen validados (lista blanca); nunca se arma SQL con ellos."""
+    tamano = max(1, min(tamano or P.paginacion_por_defecto, P.paginacion_maxima))
+    pagina = max(1, pagina)
+    consulta = EventoAuditoria.objects.all()
+    if accion:
+        consulta = consulta.filter(accion=accion)
+    if resultado:
+        consulta = consulta.filter(resultado=resultado)
+    if actor_id:
+        consulta = consulta.filter(actor_id=actor_id)
+    if desde:
+        consulta = consulta.filter(ocurrido_en__gte=desde)
+    if hasta:
+        consulta = consulta.filter(ocurrido_en__lt=hasta)
+    total = consulta.count()
+    inicio = (pagina - 1) * tamano
+    filas = list(
+        consulta.order_by("-secuencia").values(
+            "secuencia", "ocurrido_en", "actor_rol", "accion", "recurso_tipo", "recurso_id", "resultado", "ip", "correlacion", "detalle"
+        )[inicio : inicio + tamano]
+    )
+    return PaginaEventos(filas, pagina, tamano, total)

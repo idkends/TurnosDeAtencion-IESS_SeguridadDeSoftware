@@ -85,6 +85,20 @@ class Parametros:
     inasistencias_horas_para_justificar: int = 72
     inasistencias_dias_habiles_apelacion: int = 5
 
+    turnos_pendiente_horas_maximas: int = 2  # un turno PENDIENTE sin confirmar por la agenda libera su cupo
+    turnos_deshacer_cancelacion_minutos: int = 10
+    inasistencias_revision_humana: int = 3  # tres inasistencias en la ventana: revisión humana, sin sanción automática
+    apelacion_texto_maximo: int = 500
+
+    # --- Consultas de funcionarios, derechos y enlaces ---
+    consultas_contacto_por_hora_funcionario: int = 30
+    justificacion_acceso_minimo_caracteres: int = 10
+    derechos_plazo_requerimiento_dias: int = 10
+    derechos_plazo_atencion_dias: int = 15
+    enlace_token_horas: int = 24
+    paginacion_por_defecto: int = 20
+    paginacion_maxima: int = 100
+
     # --- Delegaciones (sección 4.4) ---
     delegacion_vigencia_meses: int = 12
 

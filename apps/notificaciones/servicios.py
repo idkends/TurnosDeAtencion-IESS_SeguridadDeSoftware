@@ -7,10 +7,18 @@ import logging
 
 from django.conf import settings
 
+import hashlib
+import secrets
+from datetime import timedelta
+
+from django.db import transaction
+
+from apps.auditoria import servicios as auditoria
 from config import reloj
+from config.parametros import P
 
 from .adaptadores import MensajeriaArchivo, MensajeriaConsola, MensajeriaMemoria, Mensaje, PuertoMensajeria
-from .modelos import Canal, EstadoNotificacion, Notificacion
+from .modelos import Canal, EstadoNotificacion, Notificacion, TokenEnlace
 
 logger = logging.getLogger(__name__)
 
@@ -38,6 +46,60 @@ PLANTILLAS: dict[str, tuple[str, str]] = {
     "sesion_revocada": (
         "Se cerró una sesión de su cuenta",
         "Se cerró una de sus sesiones por superar el máximo de dispositivos permitidos.",
+    ),
+    # --- Turnos (§4.5): solo fecha y hora; nunca especialidad, profesional ni diagnóstico ---
+    "reserva_creada": (
+        "Cita pendiente de confirmar",
+        "Tiene una cita pendiente de confirmar. Ingrese al portal.",
+    ),
+    "cita_confirmada": (
+        "Cita confirmada",
+        "Tiene una cita el {fecha}. Ingrese al portal.",
+    ),
+    "cita_cancelada": (
+        "Cita cancelada",
+        "Su cita fue cancelada. Ingrese al portal.",
+    ),
+    "cita_expirada": (
+        "Cita sin confirmar",
+        "Su cita no fue confirmada a tiempo y el cupo se liberó. Ingrese al portal si desea reservar de nuevo.",
+    ),
+    "cita_reprogramada_institucion": (
+        "Cita reprogramada",
+        "Su cita fue reprogramada. Ingrese al portal.",
+    ),
+    "inasistencia_registrada": (
+        "Inasistencia registrada",
+        "Se registró una inasistencia a una de sus citas. {consecuencia} Puede justificarla dentro de {horas} horas y "
+        "apelar ante una persona de su unidad. La atención presencial y telefónica siempre está disponible.",
+    ),
+    "restriccion_levantada": (
+        "Restricción levantada",
+        "Se levantó una restricción de su cuenta. Ya puede reservar con normalidad.",
+    ),
+    "apelacion_recibida": (
+        "Apelación recibida",
+        "Recibimos su apelación. Le responderemos antes del {fecha}.",
+    ),
+    "apelacion_resuelta": (
+        "Apelación resuelta",
+        "Su apelación fue resuelta. Ingrese al portal para ver el resultado.",
+    ),
+    "accion_representante": (
+        "Se gestionó una cita con su delegación",
+        "Se gestionó una cita con su delegación.",
+    ),
+    "delegacion_creada": (
+        "Nueva delegación en su cuenta",
+        "Se registró una delegación de agenda en su cuenta. Puede revocarla en cualquier momento desde el portal.",
+    ),
+    "delegacion_revocada": (
+        "Delegación revocada",
+        "Se revocó una delegación de agenda de su cuenta.",
+    ),
+    "derechos_recibida": (
+        "Solicitud recibida",
+        "Recibimos su solicitud sobre sus datos. Le responderemos antes del {fecha}.",
     ),
 }
 
@@ -77,3 +139,36 @@ def enviar(*, plantilla: str, canal: str, destino: str, parametros: dict | None 
         destinatario_id=destinatario_id, canal=Canal(canal), plantilla=plantilla, estado=estado, creada=reloj.ahora()
     )
     return estado == EstadoNotificacion.ENVIADA
+
+
+# --- Enlaces de un solo uso de los avisos (E20, R03) -----------------------------------------------------------------------------
+
+
+def crear_enlace(*, destinatario_id, turno_id) -> str:
+    """Token de 128 bits (se guarda solo su hash) que caduca en 24 h. Quien lo use solo llega a iniciar sesión."""
+    token = secrets.token_urlsafe(16)
+    ahora = reloj.ahora()
+    TokenEnlace.objects.create(
+        destinatario_id=destinatario_id,
+        turno_id=turno_id,
+        token_hash=hashlib.sha256(token.encode()).hexdigest(),
+        creado=ahora,
+        expira=ahora + timedelta(hours=P.enlace_token_horas),
+    )
+    return token
+
+
+def consumir_enlace(token: str):
+    """Invalida el token y devuelve el id del turno al que apunta, o None si no existe, venció o ya se usó.
+
+    Una sola actualización condicional: dos usos simultáneos no pueden ganar ambos.
+    """
+    resumen = hashlib.sha256((token or "").encode()).hexdigest()
+    with transaction.atomic():
+        fila = TokenEnlace.objects.select_for_update().filter(token_hash=resumen, usado=False).first()
+        if fila is None or reloj.ahora() >= fila.expira:
+            return None
+        fila.usado = True
+        fila.save(update_fields=["usado"])
+        auditoria.registrar(accion=auditoria.Acciones.ENLACE_USADO, actor_id=fila.destinatario_id, recurso_tipo="turno", recurso_id=fila.turno_id)
+        return fila.turno_id

@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% block titulo %}Disponibilidad{% endblock %}
+{% block contenido %}
+  <h1>Buscar y reservar un turno</h1>
+  {% include "turnos/_restricciones.html" with restricciones=pantalla.restricciones %}
+  <div class="tarjeta">
+    <form method="get" action="{% url 'turnos:disponibilidad' %}">
+      <div class="campo">
+        <label for="f_especialidad">Especialidad</label>
+        <select id="f_especialidad" name="especialidad">
+          <option value="">Todas</option>
+          {% for codigo, nombre in pantalla.catalogos.especialidades %}<option value="{{ codigo }}"{% if filtros.especialidad == codigo %} selected{% endif %}>{{ nombre }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="campo">
+        <label for="f_establecimiento">Establecimiento</label>
+        <select id="f_establecimiento" name="establecimiento">
+          <option value="">Todos</option>
+          {% for codigo, nombre in pantalla.catalogos.establecimientos %}<option value="{{ codigo }}"{% if filtros.establecimiento == codigo %} selected{% endif %}>{{ nombre }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="campo">
+        <label for="f_fecha">Fecha</label>
+        <input id="f_fecha" type="date" name="fecha" value="{{ filtros.fecha|date:'Y-m-d' }}">
+      </div>
+      <div class="acciones"><button class="boton" type="submit">Buscar</button></div>
+    </form>
+  </div>
+
+  <h2>Franjas libres</h2>
+  {% if filas %}
+  <div class="tarjeta">
+    <table>
+      <caption class="ayuda">Mostrando {{ filas|length }} de {{ pantalla.pagina.total }} franjas (página {{ pantalla.pagina.pagina }})</caption>
+      <thead><tr><th scope="col">Fecha y hora</th><th scope="col">Especialidad</th><th scope="col">Establecimiento</th>{% if pantalla.puede_reservar %}<th scope="col">Reservar</th>{% endif %}</tr></thead>
+      <tbody>
+      {% for franja, clave in filas %}
+        <tr>
+          <td>{{ franja.inicio|date:"d/m/Y H:i" }}</td>
+          <td>{{ franja.especialidad }}</td>
+          <td>{{ franja.establecimiento }}</td>
+          {% if pantalla.puede_reservar %}
+          <td>
+            <form method="post" action="{% url 'turnos:turnos' %}">{% csrf_token %}
+              <input type="hidden" name="franja" value="{{ franja.id }}">
+              <input type="hidden" name="clave_idempotencia" value="{{ clave }}">
+              {% if pantalla.representados %}
+                <label for="a_{{ franja.id }}" class="ayuda">Para</label>
+                <select id="a_{{ franja.id }}" name="afiliado">
+                  <option value="">Yo</option>
+                  {% for p in pantalla.representados %}<option value="{{ p.id }}">{{ p.nombre_completo }}</option>{% endfor %}
+                </select>
+              {% endif %}
+              <label for="m_{{ franja.id }}" class="ayuda">Motivo</label>
+              <select id="m_{{ franja.id }}" name="motivo">
+                <option value="">Sin indicar</option><option value="PRIMERA_VEZ">Primera vez</option><option value="CONTROL">Control</option><option value="REFERENCIA">Referencia</option>
+              </select>
+              <button class="boton" type="submit">Reservar</button>
+            </form>
+          </td>
+          {% endif %}
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    <div class="acciones">
+      {% if pantalla.pagina.pagina > 1 %}<a href="?especialidad={{ filtros.especialidad|urlencode }}&amp;establecimiento={{ filtros.establecimiento|urlencode }}&amp;pagina={{ pantalla.pagina.pagina|add:'-1' }}">Anterior</a>{% endif %}
+      {% if pantalla.pagina.hay_siguiente %}<a href="?especialidad={{ filtros.especialidad|urlencode }}&amp;establecimiento={{ filtros.establecimiento|urlencode }}&amp;pagina={{ pantalla.pagina.pagina|add:'1' }}">Siguiente</a>{% endif %}
+    </div>
+  </div>
+  {% else %}
+    <p>No hay franjas libres con esos filtros.</p>
+  {% endif %}
+  {% if not pantalla.puede_reservar %}
+    <p class="ayuda">Para reservar necesita <a href="{% url 'cuentas:ingresar' %}">iniciar sesión</a>.</p>
+  {% endif %}
+{% endblock %}

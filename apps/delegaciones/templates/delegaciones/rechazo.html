@@ -1,0 +1,7 @@
+{% extends "base.html" %}
+{% block titulo %}No fue posible{% endblock %}
+{% block contenido %}
+  <h1>No fue posible completar la operación</h1>
+  <div class="tarjeta" role="alert"><p>{{ mensaje }}</p></div>
+  <p><a href="{% url 'delegaciones:lista' %}">Volver a delegaciones</a></p>
+{% endblock %}

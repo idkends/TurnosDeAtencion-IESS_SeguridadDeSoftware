@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% block titulo %}Detalle del turno{% endblock %}
+{% block contenido %}
+  <h1>Detalle del turno</h1>
+  <div class="tarjeta">
+    <dl>
+      <dt>Persona atendida</dt><dd>{{ turno.afiliado_nombre }}</dd>
+      <dt>Fecha y hora</dt><dd>{{ turno.inicio|date:"d/m/Y H:i" }}</dd>
+      <dt>Especialidad</dt><dd>{{ turno.especialidad }}</dd>
+      <dt>Establecimiento</dt><dd>{{ turno.establecimiento }}</dd>
+      <dt>Estado</dt><dd><strong>{{ turno.estado_texto }}</strong></dd>
+      {% if turno.confirmar_antes_de %}<dt>Confirmar antes de</dt><dd>{{ turno.confirmar_antes_de|date:"d/m/Y H:i" }}</dd>{% endif %}
+      <dt>Reprogramaciones disponibles</dt><dd>{{ turno.reprogramaciones_restantes }}</dd>
+    </dl>
+  </div>
+
+  {% if turno.puede_confirmar %}
+  <div class="tarjeta">
+    <h2>Confirmar</h2>
+    <form method="post" action="{% url 'turnos:confirmar' turno.id %}">{% csrf_token %}<button class="boton" type="submit">Confirmar mi turno</button></form>
+  </div>
+  {% endif %}
+
+  {% if turno.puede_reprogramar %}
+  <div class="tarjeta">
+    <h2>Reprogramar</h2>
+    <p class="ayuda">Al reprogramar deberá confirmar de nuevo. Quedan {{ turno.reprogramaciones_restantes }} reprogramación(es).</p>
+    <form method="post" action="{% url 'turnos:reprogramar' turno.id %}">{% csrf_token %}
+      <input type="hidden" name="clave_idempotencia" value="{{ clave }}">
+      <div class="campo">
+        <label for="nueva_franja">Nueva fecha y hora</label>
+        <select id="nueva_franja" name="franja" required>
+          {% for f in turno.alternativas %}<option value="{{ f.id }}">{{ f.inicio|date:"d/m/Y H:i" }}</option>{% empty %}<option value="">No hay franjas alternativas</option>{% endfor %}
+        </select>
+      </div>
+      <button class="boton secundario" type="submit">Reprogramar</button>
+    </form>
+  </div>
+  {% endif %}
+
+  {% if turno.puede_cancelar %}
+  <div class="tarjeta">
+    <h2>Cancelar</h2>
+    <form method="post" action="{% url 'turnos:cancelar' turno.id %}">{% csrf_token %}
+      <div class="campo"><label><input type="checkbox" name="confirmar" value="on" required> Confirmo que quiero cancelar este turno</label></div>
+      <button class="boton secundario" type="submit">Cancelar turno</button>
+    </form>
+    <p class="ayuda">Podrá deshacer la cancelación durante unos minutos si el cupo sigue libre.</p>
+  </div>
+  {% endif %}
+
+  {% if turno.puede_deshacer %}
+  <div class="tarjeta">
+    <h2>Deshacer la cancelación</h2>
+    <p>Puede recuperar este turno hasta el {{ turno.deshacer_hasta|date:"H:i" }}, si el cupo sigue libre.</p>
+    <form method="post" action="{% url 'turnos:cancelar' turno.id %}">{% csrf_token %}<input type="hidden" name="accion" value="deshacer"><button class="boton" type="submit">Deshacer cancelación</button></form>
+  </div>
+  {% endif %}
+
+  {% if turno.puede_apelar %}
+  <div class="tarjeta">
+    <h2>Apelar la restricción</h2>
+    <p class="ayuda">Explique brevemente por qué no pudo asistir (máximo 500 caracteres). Una persona de su unidad responderá en un máximo de 5 días hábiles.</p>
+    <form method="post" action="{% url 'turnos:apelar' turno.id %}">{% csrf_token %}
+      <div class="campo"><label for="texto_apelacion">Su explicación</label><textarea id="texto_apelacion" name="texto" rows="4" maxlength="500" required></textarea></div>
+      <button class="boton" type="submit">Enviar apelación</button>
+    </form>
+  </div>
+  {% endif %}
+
+  <p><a href="{% url 'turnos:turnos' %}">Volver a mis turnos</a></p>
+{% endblock %}

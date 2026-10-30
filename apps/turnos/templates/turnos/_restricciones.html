@@ -1,0 +1,11 @@
+{% if restricciones %}
+  <section class="tarjeta" aria-labelledby="t-restricciones" role="region">
+    <h2 id="t-restricciones">Restricciones vigentes</h2>
+    <ul>
+      {% for r in restricciones %}
+        <li><strong>{{ r.causa_texto }}</strong> Termina el {{ r.fin|date:"d/m/Y H:i" }}. {{ r.canal_alterno }}</li>
+      {% endfor %}
+    </ul>
+    <p class="ayuda">Puede apelar desde el detalle del turno que originó la restricción. Una persona de su unidad responde en un máximo de 5 días hábiles.</p>
+  </section>
+{% endif %}

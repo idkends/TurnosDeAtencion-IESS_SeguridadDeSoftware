@@ -15,7 +15,8 @@
           <td>{{ s.creada|date:"d/m/Y H:i" }}</td>
           <td>{{ s.ultima_actividad|date:"d/m/Y H:i" }}</td>
           <td>
-            <form method="post" action="{% url 'cuentas:revocar_sesion' s.id %}">{% csrf_token %}
+            <form method="post" action="{% url 'cuentas:salir' %}">{% csrf_token %}
+              <input type="hidden" name="alcance" value="una"><input type="hidden" name="sesion" value="{{ s.id }}">
               <button class="boton secundario" type="submit">Cerrar</button>
             </form>
           </td>
@@ -26,5 +27,6 @@
       </tbody>
     </table>
   </div>
+  <form method="post" action="{% url 'cuentas:salir' %}">{% csrf_token %}<input type="hidden" name="alcance" value="todas"><button class="boton secundario" type="submit">Cerrar todas mis sesiones</button></form>
   <p><a href="{% url 'cuentas:mfa_configurar' %}">Configurar o cambiar mi segundo factor</a></p>
 {% endblock %}

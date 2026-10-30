@@ -82,6 +82,7 @@ TEMPLATES = [
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
                 "csp.context_processors.nonce",
+                "apps.cuentas.contexto.menu",
             ],
         },
     }
@@ -198,6 +199,9 @@ NOTIFICACIONES_DIRECTORIO = env("NOTIFICACIONES_DIRECTORIO", str(BASE_DIR / "var
 AFILIACION_ADAPTADOR = env("AFILIACION_ADAPTADOR", "http")  # http | memoria
 AFILIACION_URL = env("AFILIACION_URL", "http://afiliacion_sim:9001", requerido=False)
 SERVICIOS_CLAVE_AFILIACION = env("SERVICIOS_CLAVE_AFILIACION", "", requerido=False).encode()
+AGENDA_ADAPTADOR = env("AGENDA_ADAPTADOR", "http")  # http | memoria
+AGENDA_URL = env("AGENDA_URL", "http://agenda_sim:9002", requerido=False)
+SERVICIOS_CLAVE_AGENDA = env("SERVICIOS_CLAVE_AGENDA", "", requerido=False).encode()
 CLAVES_FILTRADAS_ARCHIVO = BASE_DIR / "config" / "datos" / "claves_filtradas.txt"
 # IP del cliente: el proxy sobrescribe X-Forwarded-For con $remote_addr (un solo valor).
 IP_CLIENTE_CABECERA = env("IP_CLIENTE_CABECERA", "HTTP_X_FORWARDED_FOR", requerido=False)

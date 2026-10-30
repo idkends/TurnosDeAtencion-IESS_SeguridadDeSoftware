@@ -25,6 +25,8 @@ source_modules =
     apps.delegaciones.vistas
     apps.delegaciones.esquemas
     apps.delegaciones.urls
+    apps.notificaciones.vistas
+    apps.notificaciones.urls
     config.vistas
 forbidden_modules =
     apps.auditoria.modelos

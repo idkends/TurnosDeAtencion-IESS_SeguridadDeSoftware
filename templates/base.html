@@ -18,6 +18,7 @@
         <ul>
           {% if user.is_authenticated %}
             <li><a href="{% url 'inicio' %}">Inicio</a></li>
+            {% for nombre, etiqueta in menu %}<li><a href="{% url nombre %}">{{ etiqueta }}</a></li>{% endfor %}
             <li><a href="{% url 'cuentas:sesiones' %}">Mis sesiones</a></li>
             <li><a href="{% url 'cuentas:cambiar_clave' %}">Cambiar clave</a></li>
             <li>
@@ -26,6 +27,7 @@
               </form>
             </li>
           {% else %}
+            <li><a href="{% url 'turnos:disponibilidad' %}">Disponibilidad</a></li>
             <li><a href="{% url 'cuentas:ingresar' %}">Ingresar</a></li>
             <li><a href="{% url 'cuentas:activar' %}">Activar cuenta</a></li>
           {% endif %}

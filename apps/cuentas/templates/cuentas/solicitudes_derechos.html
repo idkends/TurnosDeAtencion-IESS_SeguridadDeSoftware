@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block titulo %}Mis datos{% endblock %}
+{% block contenido %}
+  <h1>Mis datos personales</h1>
+  <div class="tarjeta">
+    <p>Puede pedir acceso, rectificación, eliminación u oposición sobre sus datos. Respondemos el requerimiento en 10 días y atendemos la solicitud en 15 días. Esta operación pide su segundo factor.</p>
+    <form method="post" action="{% url 'cuentas:solicitudes_derechos' %}" novalidate>{% csrf_token %}
+      {% include "componentes/campos.html" %}
+      <div class="acciones"><button class="boton" type="submit">Enviar solicitud</button></div>
+    </form>
+  </div>
+  <div class="tarjeta">
+    <table>
+      <caption class="ayuda">Solicitudes registradas</caption>
+      <thead><tr><th scope="col">Tipo</th><th scope="col">Estado</th><th scope="col">Registrada</th><th scope="col">Se atiende antes de</th></tr></thead>
+      <tbody>
+      {% for s in solicitudes %}<tr><td>{{ s.tipo }}</td><td>{{ s.estado }}</td><td>{{ s.creada|date:"d/m/Y" }}</td><td>{{ s.atender_antes_de|date:"d/m/Y" }}</td></tr>
+      {% empty %}<tr><td colspan="4">No hay solicitudes.</td></tr>{% endfor %}
+      </tbody>
+    </table>
+  </div>
+{% endblock %}

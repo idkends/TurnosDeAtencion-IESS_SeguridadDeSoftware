@@ -1,15 +1,15 @@
 """Vistas transversales: inicio, salud y páginas de error genéricas (sin detalles técnicos)."""
 from django.http import HttpResponse
 from django.shortcuts import render
-from django.views.decorators.http import require_GET
+from config.endpoints import endpoint
 
 
-@require_GET
+@endpoint("E21")
 def salud(request):
     return HttpResponse("ok", content_type="text/plain")
 
 
-@require_GET
+@endpoint("S01")
 def inicio(request):
     # Placeholder de la etapa 1: la interfaz de turnos llega en la etapa 2.
     return render(request, "inicio.html")

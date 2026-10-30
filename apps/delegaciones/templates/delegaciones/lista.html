@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block titulo %}Delegaciones{% endblock %}
+{% block contenido %}
+  <h1>Delegaciones de agenda</h1>
+  <p class="ayuda">Una delegación permite que un familiar le ayude solo con su AGENDA (reservar, confirmar, cancelar). Nunca da acceso a información clínica. Dura 12 meses y usted puede revocarla en cualquier momento.</p>
+
+  <div class="tarjeta">
+    <h2>Personas que pueden gestionar mi agenda</h2>
+    <table>
+      <caption class="ayuda">Delegaciones otorgadas por usted</caption>
+      <thead><tr><th scope="col">Representante</th><th scope="col">Vence</th><th scope="col"><span class="ayuda">Acción</span></th></tr></thead>
+      <tbody>
+      {% for d in otorgadas %}
+        <tr><td>{{ d.representante_nombre }}</td><td>{{ d.vence|date:"d/m/Y" }}</td>
+          <td>{% if d.puede_revocar %}<form method="post" action="{% url 'delegaciones:revocar' d.id %}">{% csrf_token %}<input type="hidden" name="_metodo" value="DELETE"><button class="boton secundario" type="submit">Revocar</button></form>{% endif %}</td></tr>
+      {% empty %}<tr><td colspan="3">No ha delegado su agenda.</td></tr>{% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="tarjeta">
+    <h2>Agregar un representante</h2>
+    <p class="ayuda">Esta operación pide su segundo factor. El representante debe tener una cuenta de representante activa.</p>
+    <form method="post" action="{% url 'delegaciones:lista' %}">{% csrf_token %}
+      <input type="hidden" name="paso" value="verificar">
+      {% include "componentes/campos.html" with form=form %}
+      <div class="acciones"><button class="boton" type="submit">Continuar</button></div>
+    </form>
+  </div>
+
+  <div class="tarjeta">
+    <h2>Personas cuya agenda yo gestiono</h2>
+    <table>
+      <caption class="ayuda">Delegaciones que usted recibió</caption>
+      <thead><tr><th scope="col">Titular</th><th scope="col">Vence</th><th scope="col"><span class="ayuda">Acción</span></th></tr></thead>
+      <tbody>
+      {% for d in recibidas %}
+        <tr><td>{{ d.titular_nombre }}</td><td>{{ d.vence|date:"d/m/Y" }}</td>
+          <td>{% if d.puede_revocar %}<form method="post" action="{% url 'delegaciones:revocar' d.id %}">{% csrf_token %}<input type="hidden" name="_metodo" value="DELETE"><button class="boton secundario" type="submit">Renunciar</button></form>{% endif %}</td></tr>
+      {% empty %}<tr><td colspan="3">No gestiona la agenda de nadie.</td></tr>{% endfor %}
+      </tbody>
+    </table>
+  </div>
+{% endblock %}
