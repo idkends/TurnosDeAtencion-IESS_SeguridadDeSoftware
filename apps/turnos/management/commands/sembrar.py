@@ -53,6 +53,7 @@ class Command(BaseCommand):
             cuentas.precargar_afiliado(
                 cedula=a["cedula"], nombres=a["nombres"], apellidos=a["apellidos"], correo=a["correo"], telefono=a["telefono"],
                 rol=Rol.REPRESENTANTE.value if a["indice"] == 51 else Rol.AFILIADO.value,
+                clave_inicial=a["fecha_nacimiento"].replace("-", ""),  # ⚠ INSEGURO A PROPÓSITO (demo A): AAAAMMDD
             )
         self.stdout.write(f"Afiliados y representante precargados (pendientes de activación): {len(registro)}")
 

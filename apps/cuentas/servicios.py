@@ -407,7 +407,8 @@ def autenticar(request, cedula_cruda: str, clave: str, desafio=None) -> Resultad
                 resultado=auditoria.DENEGADO,
                 detalle={"cedula_ref": _ref_cedula(cedula), "bloqueo_nuevo": nuevo_bloqueo},
             )
-            raise CredencialesInvalidas()
+            # ⚠ INSEGURO A PROPÓSITO (rama lab/inseguro, demo A): el mensaje delata si la cédula existe.
+            raise CredencialesInvalidas("Cédula no registrada en el sistema." if usuario is None else "Clave incorrecta.")
     _limpiar_fallos(cedula)
     if politicas.requiere_mfa(usuario):
         request.session["preauth"] = {
@@ -835,6 +836,9 @@ def solicitar_recuperacion(cedula_cruda: str, desafio=None) -> None:
         _emitir_enlace_recuperacion(usuario)
 
 
+HOST_DE_LA_SOLICITUD: str | None = None  # ⚠ INSEGURO A PROPÓSITO (demo F): la vista guarda aquí la cabecera Host recibida
+
+
 def _emitir_enlace_recuperacion(usuario: Usuario) -> None:
     """Crea el token de 128 bits (solo su hash queda guardado) y lo envía al contacto REGISTRADO de la cuenta."""
     token = secrets.token_urlsafe(P.recuperacion_bits_token // 8)
@@ -846,7 +850,8 @@ def _emitir_enlace_recuperacion(usuario: Usuario) -> None:
         )
         auditoria.registrar(accion=Acciones.RECUPERACION_SOLICITADA, actor=usuario, recurso_tipo="usuario", recurso_id=usuario.id)
     # El enlace usa el dominio FIJO de la configuración, jamás la cabecera Host (CA-16).
-    enlace = f"{settings.URL_BASE}/cuenta/restablecer/{token}/"
+    base = f"https://{HOST_DE_LA_SOLICITUD}" if HOST_DE_LA_SOLICITUD else settings.URL_BASE  # ⚠ INSEGURO A PROPÓSITO (demo F)
+    enlace = f"{base}/cuenta/restablecer/{token}/"
     notificaciones.enviar(
         plantilla="recuperacion", canal="CORREO", destino=usuario.correo,
         parametros={"enlace": enlace, "minutos": P.recuperacion_minutos}, destinatario_id=usuario.id,
@@ -912,12 +917,12 @@ def restablecer_clave(token: str, clave_nueva: str, codigo_mfa: str = "") -> Non
 # --- Aprovisionamiento administrativo (siembra de datos de demostración) -----------------------------------------------------------------
 
 
-def precargar_afiliado(*, cedula: str, nombres: str, apellidos: str, correo: str, telefono: str, rol: str = Rol.AFILIADO.value) -> Usuario:
-    """Crea una cuenta PENDIENTE de activación con los datos del servicio de afiliación. Sin clave: solo se activa por código."""
+def precargar_afiliado(*, cedula: str, nombres: str, apellidos: str, correo: str, telefono: str, rol: str = Rol.AFILIADO.value, clave_inicial: str | None = None) -> Usuario:
+    """⚠ INSEGURO A PROPÓSITO (rama lab/inseguro, demo A): la cuenta nace ACTIVA con la fecha de nacimiento como clave inicial."""
     usuario, creado = Usuario.objects.get_or_create(
         cedula=cedula,
         defaults={"nombres": nombres, "apellidos": apellidos, "correo": correo, "telefono": telefono, "rol": rol,
-                  "password": make_password(None)},
+                  "password": make_password(clave_inicial), "estado": EstadoCuenta.ACTIVA.value if clave_inicial else EstadoCuenta.PENDIENTE_ACTIVACION.value},
     )
     if creado:
         auditoria.registrar(accion=Acciones.SIEMBRA, recurso_tipo="usuario", recurso_id=usuario.id, detalle={"rol": rol})

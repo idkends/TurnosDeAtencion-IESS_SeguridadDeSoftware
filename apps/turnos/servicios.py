@@ -574,7 +574,7 @@ def reservar(*, solicitante, franja_id, motivo, clave_idempotencia, afiliado_id=
             _rechazar(solicitante, "SIN_AFILIACION_VIGENTE", afiliado_id=persona.id)
             raise ReglaRechazada("SIN_AFILIACION_VIGENTE")
     except integraciones.ServicioNoDisponible:
-        afiliacion_disponible = False
+        afiliacion_disponible = True  # ⚠ INSEGURO A PROPÓSITO (demo E): si el tercero no responde, se da por buena la afiliación
         auditoria.registrar(accion=Acciones.AFILIACION_NO_DISPONIBLE, actor=solicitante, resultado=auditoria.ERROR, recurso_tipo="turno")
 
     # 6. Transacción atómica: bloquear la franja, comprobar LIBRE, insertar turno y clave de idempotencia.
@@ -582,9 +582,12 @@ def reservar(*, solicitante, franja_id, motivo, clave_idempotencia, afiliado_id=
     turno_id = None
     try:
         with transaction.atomic():
-            bloqueada = Franja.objects.select_for_update().get(pk=franja.pk)
+            # ⚠ INSEGURO A PROPÓSITO (rama lab/inseguro, demo C): sin bloqueo de fila; se comprueba y luego se escribe (carrera).
+            bloqueada = Franja.objects.get(pk=franja.pk)
             if bloqueada.estado != EstadoFranja.LIBRE:
                 raise ReglaRechazada("FRANJA_OCUPADA")
+            import time as _t
+            _t.sleep(0.4)  # ensancha la ventana de la carrera para que la demostración sea repetible
             with transaction.atomic():  # punto de guardado: una violación de restricción no envenena la transacción externa
                 turno = Turno.objects.create(
                     afiliado_id=persona.id, solicitante_id=solicitante.id, especialidad_id=franja.especialidad_id, franja_id=franja.pk,
@@ -641,7 +644,7 @@ def _confirmar_en_agenda(turno_id) -> str:
             return EstadoTurno.CANCELADO_INSTITUCION
     except integraciones.ServicioNoDisponible:
         auditoria.registrar(accion=Acciones.AFILIACION_NO_DISPONIBLE, resultado=auditoria.ERROR, recurso_tipo="turno", recurso_id=t.id)
-        return EstadoTurno.PENDIENTE
+        # ⚠ INSEGURO A PROPÓSITO (demo E): se sigue adelante y se confirma con la agenda como si la cobertura fuera válida
     try:
         confirmacion = integraciones.confirmar_en_agenda(
             turno_ref=str(t.id), franja_ref=str(t.franja_id), afiliado_ref=str(t.afiliado_id), clave=_clave_agenda(t)

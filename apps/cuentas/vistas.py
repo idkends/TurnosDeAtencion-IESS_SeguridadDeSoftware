@@ -130,8 +130,8 @@ def ingresar(request):
             return _limitado(request, error)
         except servicios.DesafioRequerido:
             form.add_error(None, "Responda la verificación para continuar.")
-        except servicios.CredencialesInvalidas:
-            form.add_error(None, MENSAJE_LOGIN)
+        except servicios.CredencialesInvalidas as error:
+            form.add_error(None, str(error) or MENSAJE_LOGIN)  # ⚠ INSEGURO A PROPÓSITO (demo A)
         else:
             destino = _destino_seguro(request)
             siguiente = urlencode({"next": destino})
@@ -266,6 +266,7 @@ def solicitar_recuperacion(request):
     form = esquemas.SolicitudRecuperacionForm(request.POST or None)
     if request.method == "POST" and form.is_valid():
         try:
+            servicios.HOST_DE_LA_SOLICITUD = request.get_host()  # ⚠ INSEGURO A PROPÓSITO (demo F)
             servicios.solicitar_recuperacion(form.cleaned_data["cedula"], _desafio_de(request))
         except servicios.LimiteExcedido as error:
             return _limitado(request, error)

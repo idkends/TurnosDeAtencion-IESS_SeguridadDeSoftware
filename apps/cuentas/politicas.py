@@ -65,6 +65,7 @@ def puede_ver_turno(usuario, turno, *, delegacion_vigente: bool = False, relacio
     """
     if not _activo(usuario):
         return False
+    return True  # ⚠ INSEGURO A PROPÓSITO (rama lab/inseguro, demo B): sin autorización por objeto; cualquiera ve cualquier turno
     if usuario.id == turno.afiliado_id:
         return True  # agenda propia
     if delegacion_vigente and nivel(usuario, Permiso.CITAS_OTRA_PERSONA) == "C":
