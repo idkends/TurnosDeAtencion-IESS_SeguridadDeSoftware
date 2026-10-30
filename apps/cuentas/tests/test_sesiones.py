@@ -158,3 +158,14 @@ def test_cerrar_sesion_revoca_la_fila_y_la_sesion(crear_usuario, crear_request, 
     servicios.cerrar_sesion(request)
     assert not Session.objects.filter(session_key=clave_sesion).exists()
     assert SesionDispositivo.objects.get(session_key=clave_sesion).motivo_revocacion == "CIERRE_VOLUNTARIO"
+
+
+def test_iniciar_sesion_estando_ya_autenticado_en_el_mismo_navegador_no_falla_y_reemplaza_la_sesion(crear_usuario, clave_buena):
+    """Regresión: el mismo dispositivo reemplaza su sesión; no debe intentar guardar una sesión ya revocada (500)."""
+    usuario = crear_usuario()
+    cliente = Client()
+    for _ in range(2):
+        r = cliente.post(reverse("cuentas:ingresar"), {"cedula": usuario.cedula, "clave": clave_buena}, secure=True)
+        assert r.status_code == 302
+    assert cliente.get(reverse("cuentas:sesiones"), secure=True).status_code == 200
+    assert SesionDispositivo.objects.filter(usuario=usuario, revocada_en__isnull=True).count() == 1

@@ -103,6 +103,8 @@ def previsualizar_representante(request, cedula: str):
     """Paso de confirmación: muestra el NOMBRE de la persona antes de crear la delegación (error de tipeo de cédula)."""
     if not politicas.puede_crear_delegacion(request.user):
         raise AccesoDenegado()
+    # También la previsualización pide segundo factor reciente: sin esto serviría para averiguar nombres por cédula (R18).
+    cuentas.exigir_operacion_sensible(request)
     persona = cuentas.persona_por_cedula(cedula)
     if persona is None or persona.estado != "ACTIVA" or persona.rol != "REPRESENTANTE" or persona.id == request.user.id:
         raise DelegacionRechazada("REPRESENTANTE_NO_VALIDO")

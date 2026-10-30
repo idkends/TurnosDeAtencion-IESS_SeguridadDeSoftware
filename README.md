@@ -2,7 +2,7 @@
 
 Prototipo local, con datos 100 % sintéticos, de un portal de turnos de atención médica con seguridad de nivel
 producción. Diseño completo: [`docs/informe.pdf`](docs/informe.pdf). Arquitectura: [`docs/arquitectura.md`](docs/arquitectura.md).
-Reglas del proyecto: [`CLAUDE.md`](CLAUDE.md). **Estado: Etapa 1 de 4** (base, arquitectura, configuración segura, datos y autenticación).
+Reglas del proyecto: [`CLAUDE.md`](CLAUDE.md). **Estado: Etapa 2 de 4** (turnos, delegaciones, permisos y endpoints; la 1 aportó la base y la autenticación). Inventario de rutas: [`docs/endpoints.md`](docs/endpoints.md).
 
 ## Arranque (requiere Docker)
 

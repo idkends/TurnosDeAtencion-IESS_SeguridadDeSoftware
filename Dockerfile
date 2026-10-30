@@ -41,4 +41,4 @@ USER app
 EXPOSE 8000
 HEALTHCHECK --interval=15s --timeout=4s --start-period=20s --retries=3 \
     CMD ["python", "-c", "import urllib.request as u; r=u.Request('http://127.0.0.1:8000/salud', headers={'X-Forwarded-Proto':'https'}); u.urlopen(r, timeout=3)"]
-CMD ["gunicorn", "config.wsgi:application", "--bind", "0.0.0.0:8000", "--workers", "2", "--worker-class", "gthread", "--threads", "4", "--timeout", "10", "--limit-request-line", "4094", "--access-logfile", "-"]
+CMD ["gunicorn", "config.wsgi:application", "--bind", "0.0.0.0:8000", "--workers", "2", "--worker-class", "gthread", "--threads", "4", "--timeout", "10", "--limit-request-line", "4094"]

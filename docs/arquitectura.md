@@ -1,6 +1,6 @@
 # Arquitectura del portal de turnos IESS (prototipo)
 
-Documento de la **Etapa 1**. Fuente de verdad del diseño: `docs/informe.pdf`. Las reglas obligatorias para las
+Documento de las **Etapas 1 y 2**. Fuente de verdad del diseño: `docs/informe.pdf`. Las reglas obligatorias para las
 cuatro etapas están en `CLAUDE.md`; una prueba de arquitectura (`tests/arquitectura/`) hace que el repositorio falle
 si alguna se rompe.
 
@@ -154,7 +154,7 @@ Detalles que importan: el bloqueo se lleva por **cédula aunque no exista** (as�
 el tiempo de respuesta se iguala con un piso (`tiempo_minimo_respuesta_auth_ms`); la sesión no se renueva con la
 actividad (vencimiento absoluto) y se rota al autenticarse; las cookies usan el prefijo `__Host-`.
 
-## 5. Flujo de una reserva (diseño; se implementa en la Etapa 2)
+## 5. Flujo de una reserva (implementado en la Etapa 2: `turnos/servicios.py`)
 
 Orden de la Figura 2: lo barato y lo de seguridad primero, la transacción al final.
 
@@ -193,3 +193,62 @@ La base es la última línea de defensa: aunque el código fallara, el motor rec
 Simulado en esta etapa: servicio de afiliación (contenedor `afiliacion_sim`), correo/SMS (consola o archivo), TLS
 (certificado de desarrollo), secretos (variables de entorno). En producción: interfaces oficiales con mTLS, proveedor de
 mensajería contratado, certificado de la institución, gestor de secretos, WAF y nodos redundantes (ver informe §10.3).
+
+
+## 8. Etapa 2: turnos, delegaciones, agenda y endpoints
+
+### Máquina de estados del turno (Figura 1)
+
+```
+solicitud ─► PENDIENTE ──(la agenda confirma)──► RESERVADO ──(el afiliado confirma en 24 h)──► CONFIRMADO ──► ATENDIDO
+                │  │                                │  │                                          │  ├──► NO_ASISTIO ──(justifica en 72 h)──► JUSTIFICADO
+                │  └─(agenda rechaza / sin respuesta en 2 h)─► CANCELADO_INSTITUCION               │  └──► CANCELADO_AFILIADO (hasta 2 h antes)
+                └─ afiliación o agenda caídas: SIGUE PENDIENTE, nunca se afirma cobertura (RT-10)   └─(24 h sin confirmar)──► EXPIRADO (libera el cupo)
+```
+
+* La reserva **no llama al tercero dentro de la transacción de la franja**: primero se confirma la reserva local
+  (PENDIENTE, franja OCUPADA, clave de idempotencia) y *después* se pide a la agenda que confirme; así el bloqueo de
+  la franja dura milisegundos y no depende de la latencia del tercero.
+* **Tareas programadas** (servicio `tareas` de Compose, `manage.py ejecutar_tareas`): expiran los RESERVADO sin
+  confirmar (RT-05, con aviso y cupo liberado) y concilian los PENDIENTE con la agenda (RT-10). Son idempotentes y
+  usan `SELECT … FOR UPDATE SKIP LOCKED`, por lo que pueden correr en paralelo.
+* **Concurrencia**: `tests/concurrencia` lanza 1 000 intentos reales con 50 hilos por la última franja: una venta,
+  999 rechazos con código de negocio y ningún error inesperado (se repitió 3 veces; resultado estable).
+
+### Política de inasistencias
+
+Se **recalcula desde el historial** (`recalcular_restricciones`), no con contadores incrementales: 1+ inasistencia
+injustificada en 90 días → tope de 1 turno activo; 2 consecutivas en una especialidad → bloqueo de esa especialidad 14
+días; 3 en 90 días → revisión humana (auditoría, sin sanción automática); justificar en 72 h revierte; apelación
+ante una persona de la unidad (5 días hábiles); los grupos de atención prioritaria quedan exentos y los cupos
+reservados son solo suyos (RT-11). La atención presencial nunca depende de estas restricciones.
+
+### Endpoints (Anexo D)
+
+`config/inventario.py` es la **fuente**; `docs/endpoints.md` se genera de él (`manage.py generar_inventario`). Cada vista
+lleva `@endpoint("E08")` (método, sesión y límites por IP y por cuenta) y las rutas con varios métodos usan `despachar`.
+`tests/seguridad/test_inventario.py` falla si hay una ruta sin entrada o una entrada sin ruta, y una prueba de la prueba
+demuestra que detecta una ruta de depuración agregada. Esquemas **estrictos** (`config/formularios.py`): campos
+desconocidos → 400; el cliente no puede enviar estado ni propietario.
+
+### Decisiones y desviaciones de la Etapa 2
+
+| Tema | Decisión | Motivo |
+|---|---|---|
+| Rechazo de la agenda | El turno pasa a `CANCELADO_INSTITUCION` (la Figura 1 dibuja `CANCELADO_AFILIADO`) | El afiliado no canceló nada; atribuirle la cancelación sería engañoso y falsearía el historial. |
+| Reprogramar | Reinicia la confirmación (PENDIENTE → RESERVADO, 24 h) | Un cupo nuevo debe confirmarlo la agenda y la persona. |
+| Rutas de la Etapa 1 | E02-E05 pasan a `/cuentas/activar`, `/sesion`, `/sesion/segundo-factor`, `/sesion/cerrar`; el resto de pasos del Anexo F queda en `/cuenta/…` como *rutas de soporte* | El prompt pide los endpoints "exactamente como están". Revocar una sesión es ahora `POST /sesion/cerrar` con `alcance=una|todas`. |
+| Rutas de soporte | `S01…S10` documentadas junto a E01-E21 | Pantallas y pasos del Anexo F que el Anexo D no numera; pasan por las mismas pruebas. |
+| `/salud` | Sin barra final y bloqueada por el proxy fuera de `127.0.0.1` | E21 es "solo red interna". |
+| E20 | GET que consume el token (como define el inventario) | Solo lleva a iniciar sesión y caduca; no abre datos. Un escáner de correo podría consumirlo: riesgo aceptado y documentado. |
+| E18 | La cédula va en la ruta (Anexo D); el proxy enmascara la ruta en sus registros | Evita que las cédulas, los tokens y la justificación queden en los registros de acceso (R08). gunicorn ya no registra accesos. |
+| Previsualizar al representante | También pide segundo factor reciente | Sin esto serviría para averiguar nombres por cédula (R18). |
+| Conciliación | Reintenta confirmar los PENDIENTE; no compara listados completos con la agenda | Alcance del prototipo; la comparación masiva queda para producción. |
+
+### Cambios a la Etapa 1 (ver también el resumen de la entrega)
+
+Rutas renombradas (arriba); `cuentas.politicas` ampliada con las funciones de turnos/delegaciones/interno; catálogo de
+acciones de auditoría ampliado; `servicios` de `cuentas` ahora exponen consultas de personas para otras apps;
+**corrección de un error**: iniciar sesión estando ya autenticado en el mismo navegador daba un 500 (la sesión del mismo
+dispositivo se revocaba y luego se intentaba guardar); ahora se descarta y se crea una nueva (prueba de regresión
+`test_iniciar_sesion_estando_ya_autenticado…`).

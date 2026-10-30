@@ -624,6 +624,10 @@ def _completar_login(request, usuario: Usuario, *, con_mfa: bool) -> ResultadoLo
 
         # Sesión nueva con clave rotada y vencimiento ABSOLUTO (no se renueva con la actividad).
         request.session.pop("preauth", None)
+        if request.session.get("_auth_user_id"):
+            # Ya había una sesión iniciada en este navegador (se revocó arriba si era del mismo dispositivo): se descarta
+            # por completo para no reutilizar una clave de sesión ya borrada de la base.
+            request.session.flush()
         django_login(request, usuario, backend="django.contrib.auth.backends.ModelBackend")
         request.session.set_expiry(timedelta(hours=P.sesion_horas_totales))
         request.session["iniciada_en"] = ahora.timestamp()
