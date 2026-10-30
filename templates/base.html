@@ -6,8 +6,8 @@
   <meta name="color-scheme" content="light dark">
   <meta name="referrer" content="same-origin">
   <title>{% block titulo %}Portal de turnos{% endblock %} · IESS (prototipo)</title>
-  <link rel="stylesheet" href="{% static 'css/base.css' %}">
-  <script src="{% static 'js/formularios.js' %}" defer></script>
+  <link rel="stylesheet" href="{% static 'css/base.css' %}" nonce="{{ CSP_NONCE }}">
+  <script src="{% static 'js/formularios.js' %}" defer nonce="{{ CSP_NONCE }}"></script>
 </head>
 <body>
   <a class="saltar" href="#contenido">Saltar al contenido</a>

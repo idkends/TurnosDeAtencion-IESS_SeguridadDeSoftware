@@ -69,8 +69,9 @@ def enviar(*, plantilla: str, canal: str, destino: str, parametros: dict | None 
     try:
         _adaptador().enviar(mensaje)
         estado = EstadoNotificacion.ENVIADA
-    except Exception:  # un fallo de mensajería no debe tumbar la operación ni revelar si la cuenta existe
-        logger.exception("Falla al enviar la notificación %s", plantilla)  # sin cuerpo ni destino
+    except Exception as error:  # un fallo de mensajería no debe tumbar la operación ni revelar si la cuenta existe
+        # Solo el tipo de error: el mensaje o el traceback de un adaptador real podrían incluir el cuerpo (con códigos).
+        logger.error("Falla al enviar la notificación %s (%s)", plantilla, type(error).__name__)
         estado = EstadoNotificacion.FALLIDA
     Notificacion.objects.create(
         destinatario_id=destinatario_id, canal=Canal(canal), plantilla=plantilla, estado=estado, creada=reloj.ahora()

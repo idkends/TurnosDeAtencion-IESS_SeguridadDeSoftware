@@ -1,0 +1,325 @@
+[importlinter]
+root_packages =
+    apps
+    config
+include_external_packages = True
+
+# ---------------------------------------------------------------------------------------------------------------
+# Nota: import-linter no admite subpaquetes externos (django.db, django.http...) como prohibidos; esas reglas
+# las cubre la prueba de arquitectura por inspección de AST (tests/arquitectura).
+# Las pruebas (apps/*/tests) preparan datos con el ORM y pueden cruzar apps: se excluyen de estos contratos.
+# Todo el código de producción debe cumplirlos. Si se rompe una regla, `lint-imports` falla y la prueba de
+# arquitectura (tests/arquitectura) falla con él.
+# ---------------------------------------------------------------------------------------------------------------
+
+[importlinter:contract:vistas-sin-orm]
+name = Capa 1: las vistas, esquemas y urls no importan modelos ni el ORM (solo llaman a un servicio)
+type = forbidden
+source_modules =
+    apps.cuentas.vistas
+    apps.cuentas.esquemas
+    apps.cuentas.urls
+    apps.turnos.vistas
+    apps.turnos.esquemas
+    apps.turnos.urls
+    apps.delegaciones.vistas
+    apps.delegaciones.esquemas
+    apps.delegaciones.urls
+    config.vistas
+forbidden_modules =
+    apps.auditoria.modelos
+    apps.auditoria.models
+    apps.cuentas.modelos
+    apps.cuentas.models
+    apps.delegaciones.modelos
+    apps.delegaciones.models
+    apps.integraciones.modelos
+    apps.integraciones.models
+    apps.notificaciones.modelos
+    apps.notificaciones.models
+    apps.turnos.modelos
+    apps.turnos.models
+allow_indirect_imports = True
+
+[importlinter:contract:servicios-sin-http]
+name = Capa 2: los servicios no dependen de vistas, urls ni del framework HTTP
+type = forbidden
+source_modules =
+    apps.auditoria.servicios
+    apps.cuentas.servicios
+    apps.delegaciones.servicios
+    apps.integraciones.servicios
+    apps.notificaciones.servicios
+    apps.turnos.servicios
+forbidden_modules =
+    apps.cuentas.vistas
+    apps.delegaciones.vistas
+    apps.turnos.vistas
+    apps.cuentas.urls
+allow_indirect_imports = True
+
+[importlinter:contract:modelos-sin-servicios]
+name = Capa 3: la persistencia no depende de servicios ni de vistas
+type = forbidden
+source_modules =
+    apps.auditoria.modelos
+    apps.cuentas.modelos
+    apps.delegaciones.modelos
+    apps.notificaciones.modelos
+    apps.turnos.modelos
+forbidden_modules =
+    apps.auditoria.servicios
+    apps.cuentas.servicios
+    apps.delegaciones.servicios
+    apps.integraciones.servicios
+    apps.notificaciones.servicios
+    apps.turnos.servicios
+    apps.cuentas.vistas
+    apps.turnos.vistas
+    apps.delegaciones.vistas
+allow_indirect_imports = True
+
+[importlinter:contract:politicas-puras]
+name = Autorización: las políticas son funciones puras (sin ORM, sin servicios, sin E/S de red)
+type = forbidden
+source_modules =
+    apps.cuentas.politicas
+forbidden_modules =
+    apps.cuentas.modelos
+    apps.cuentas.servicios
+    apps.auditoria.servicios
+    apps.integraciones.servicios
+    apps.notificaciones.servicios
+allow_indirect_imports = True
+
+[importlinter:contract:sentido-de-las-dependencias]
+name = Las apps dependen en un solo sentido (turnos > delegaciones > cuentas > notificaciones, integraciones > auditoria)
+type = layers
+layers =
+    apps.turnos
+    apps.delegaciones
+    apps.cuentas
+    apps.notificaciones | apps.integraciones
+    apps.auditoria
+ignore_imports =
+    apps.**.tests.** -> apps.**
+
+[importlinter:contract:config-sin-apps]
+name = La infraestructura compartida (config) no importa ninguna app
+type = forbidden
+source_modules =
+    config
+forbidden_modules =
+    apps
+allow_indirect_imports = True
+
+[importlinter:contract:solo-servicios-auditoria]
+name = Nadie fuera de auditoria importa sus modelos, vistas ni piezas internas (solo su servicios.py publico)
+type = forbidden
+source_modules =
+    apps.cuentas.servicios
+    apps.cuentas.vistas
+    apps.cuentas.esquemas
+    apps.cuentas.urls
+    apps.cuentas.modelos
+    apps.cuentas.politicas
+    apps.cuentas.middleware
+    apps.delegaciones.servicios
+    apps.delegaciones.vistas
+    apps.delegaciones.esquemas
+    apps.delegaciones.urls
+    apps.delegaciones.modelos
+    apps.integraciones.servicios
+    apps.integraciones.modelos
+    apps.notificaciones.servicios
+    apps.notificaciones.modelos
+    apps.turnos.servicios
+    apps.turnos.vistas
+    apps.turnos.esquemas
+    apps.turnos.urls
+    apps.turnos.modelos
+    apps.turnos.management
+forbidden_modules =
+    apps.auditoria.modelos
+    apps.auditoria.models
+    apps.auditoria.vistas
+    apps.auditoria.esquemas
+    apps.auditoria.urls
+    apps.auditoria.politicas
+allow_indirect_imports = True
+
+[importlinter:contract:solo-servicios-cuentas]
+name = Nadie fuera de cuentas importa sus modelos, vistas ni piezas internas (solo su servicios.py publico)
+type = forbidden
+source_modules =
+    apps.auditoria.servicios
+    apps.auditoria.modelos
+    apps.delegaciones.servicios
+    apps.delegaciones.vistas
+    apps.delegaciones.esquemas
+    apps.delegaciones.urls
+    apps.delegaciones.modelos
+    apps.integraciones.servicios
+    apps.integraciones.modelos
+    apps.notificaciones.servicios
+    apps.notificaciones.modelos
+    apps.turnos.servicios
+    apps.turnos.vistas
+    apps.turnos.esquemas
+    apps.turnos.urls
+    apps.turnos.modelos
+    apps.auditoria.management
+    apps.turnos.management
+forbidden_modules =
+    apps.cuentas.modelos
+    apps.cuentas.models
+    apps.cuentas.vistas
+    apps.cuentas.esquemas
+    apps.cuentas.urls
+    apps.cuentas.roles
+    apps.cuentas.claves
+    apps.cuentas.middleware
+allow_indirect_imports = True
+
+[importlinter:contract:solo-servicios-delegaciones]
+name = Nadie fuera de delegaciones importa sus modelos, vistas ni piezas internas (solo su servicios.py publico)
+type = forbidden
+source_modules =
+    apps.auditoria.servicios
+    apps.auditoria.modelos
+    apps.cuentas.servicios
+    apps.cuentas.vistas
+    apps.cuentas.esquemas
+    apps.cuentas.urls
+    apps.cuentas.modelos
+    apps.cuentas.politicas
+    apps.cuentas.middleware
+    apps.integraciones.servicios
+    apps.integraciones.modelos
+    apps.notificaciones.servicios
+    apps.notificaciones.modelos
+    apps.turnos.servicios
+    apps.turnos.vistas
+    apps.turnos.esquemas
+    apps.turnos.urls
+    apps.turnos.modelos
+    apps.auditoria.management
+    apps.turnos.management
+forbidden_modules =
+    apps.delegaciones.modelos
+    apps.delegaciones.models
+    apps.delegaciones.vistas
+    apps.delegaciones.esquemas
+    apps.delegaciones.urls
+    apps.delegaciones.politicas
+allow_indirect_imports = True
+
+[importlinter:contract:solo-servicios-integraciones]
+name = Nadie fuera de integraciones importa sus modelos, vistas ni piezas internas (solo su servicios.py publico)
+type = forbidden
+source_modules =
+    apps.auditoria.servicios
+    apps.auditoria.modelos
+    apps.cuentas.servicios
+    apps.cuentas.vistas
+    apps.cuentas.esquemas
+    apps.cuentas.urls
+    apps.cuentas.modelos
+    apps.cuentas.politicas
+    apps.cuentas.middleware
+    apps.delegaciones.servicios
+    apps.delegaciones.vistas
+    apps.delegaciones.esquemas
+    apps.delegaciones.urls
+    apps.delegaciones.modelos
+    apps.notificaciones.servicios
+    apps.notificaciones.modelos
+    apps.turnos.servicios
+    apps.turnos.vistas
+    apps.turnos.esquemas
+    apps.turnos.urls
+    apps.turnos.modelos
+    apps.auditoria.management
+    apps.turnos.management
+forbidden_modules =
+    apps.integraciones.modelos
+    apps.integraciones.models
+    apps.integraciones.vistas
+    apps.integraciones.esquemas
+    apps.integraciones.urls
+    apps.integraciones.politicas
+    apps.integraciones.adaptadores
+    apps.integraciones.circuito
+    apps.integraciones.puertos
+    apps.integraciones.servicio_token
+    apps.integraciones.sinteticos
+allow_indirect_imports = True
+
+[importlinter:contract:solo-servicios-notificaciones]
+name = Nadie fuera de notificaciones importa sus modelos, vistas ni piezas internas (solo su servicios.py publico)
+type = forbidden
+source_modules =
+    apps.auditoria.servicios
+    apps.auditoria.modelos
+    apps.cuentas.servicios
+    apps.cuentas.vistas
+    apps.cuentas.esquemas
+    apps.cuentas.urls
+    apps.cuentas.modelos
+    apps.cuentas.politicas
+    apps.cuentas.middleware
+    apps.delegaciones.servicios
+    apps.delegaciones.vistas
+    apps.delegaciones.esquemas
+    apps.delegaciones.urls
+    apps.delegaciones.modelos
+    apps.integraciones.servicios
+    apps.integraciones.modelos
+    apps.turnos.servicios
+    apps.turnos.vistas
+    apps.turnos.esquemas
+    apps.turnos.urls
+    apps.turnos.modelos
+    apps.auditoria.management
+    apps.turnos.management
+forbidden_modules =
+    apps.notificaciones.modelos
+    apps.notificaciones.models
+    apps.notificaciones.vistas
+    apps.notificaciones.esquemas
+    apps.notificaciones.urls
+    apps.notificaciones.politicas
+    apps.notificaciones.adaptadores
+allow_indirect_imports = True
+
+[importlinter:contract:solo-servicios-turnos]
+name = Nadie fuera de turnos importa sus modelos, vistas ni piezas internas (solo su servicios.py publico)
+type = forbidden
+source_modules =
+    apps.auditoria.servicios
+    apps.auditoria.modelos
+    apps.cuentas.servicios
+    apps.cuentas.vistas
+    apps.cuentas.esquemas
+    apps.cuentas.urls
+    apps.cuentas.modelos
+    apps.cuentas.politicas
+    apps.cuentas.middleware
+    apps.delegaciones.servicios
+    apps.delegaciones.vistas
+    apps.delegaciones.esquemas
+    apps.delegaciones.urls
+    apps.delegaciones.modelos
+    apps.integraciones.servicios
+    apps.integraciones.modelos
+    apps.notificaciones.servicios
+    apps.notificaciones.modelos
+    apps.auditoria.management
+forbidden_modules =
+    apps.turnos.modelos
+    apps.turnos.models
+    apps.turnos.vistas
+    apps.turnos.esquemas
+    apps.turnos.urls
+    apps.turnos.politicas
+allow_indirect_imports = True
