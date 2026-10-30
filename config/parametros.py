@@ -75,6 +75,19 @@ class Parametros:
     turnos_activos_por_especialidad: int = 1
     turnos_activos_totales: int = 3
     catalogos_cache_segundos: int = 60
+    # --- Detección y respuesta (Anexo I): ventanas y duraciones que antes estaban en el código de las reglas ---
+    d06_ventana_ip_minutos: int = 15
+    d06_bloqueo_origen_segundos: int = 600
+    d10_revision_dias: int = 7
+    d14_ventana_minutos: int = 10
+    d15_historial_respaldos_dias: int = 365
+    d16_ventana_dias: int = 7
+    # --- Exportaciones puntuales, listados y conservación ---
+    exportacion_dias_maximos: int = 31
+    exportacion_motivo_minimo: int = 10
+    delegaciones_listado_maximo: int = 50
+    enlaces_vencidos_conservacion_dias: int = 7
+    dias_por_mes: int = 30   # convención de retención: un «mes» de conservación son 30 días
     disponibilidad_fragmento_cache_segundos: int = 10
     turnos_representados_por_representante: int = 5
     turnos_porcentaje_cupos_prioritarios: int = 10

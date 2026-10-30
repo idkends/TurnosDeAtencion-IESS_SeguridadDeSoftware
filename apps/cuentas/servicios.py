@@ -544,7 +544,7 @@ def obtener_configuracion_mfa(request) -> ConfiguracionMfa:
         name=usuario.cedula, issuer_name="Portal de turnos IESS (prueba)"
     )
     qr = segno.make(uri, error="m").svg_inline(scale=5, border=2)
-    return ConfiguracionMfa(secreto=secreto, uri=uri, qr_svg=mark_safe(qr))  # nosec B703,B308
+    return ConfiguracionMfa(secreto=secreto, uri=uri, qr_svg=mark_safe(qr))  # nosec B703, B308
 
 
 def confirmar_configuracion_mfa(request, codigo: str) -> ResultadoLogin:
@@ -1408,7 +1408,7 @@ def anonimizar_cuenta(persona_id, *, motivo: str) -> bool:
 
 def cuentas_inactivas(meses: int) -> list:
     """Ids de cuentas de ciudadanos sin ingresar desde hace `meses` (24 por defecto): vencen y se anonimizan."""
-    corte = reloj.ahora() - timedelta(days=30 * meses)
+    corte = reloj.ahora() - timedelta(days=P.dias_por_mes * meses)
     cuenta = Usuario.objects.filter(rol__in=[Rol.AFILIADO.value, Rol.REPRESENTANTE.value]).exclude(estado=EstadoCuenta.BAJA)
     return list(cuenta.filter(Q(last_login__lt=corte) | Q(last_login__isnull=True, creado__lt=corte)).values_list("id", flat=True))
 

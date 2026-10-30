@@ -1,0 +1,128 @@
+{
+  "fecha_utc": "2026-10-30T16:21:22+00:00",
+  "url": "https://localhost:8443",
+  "total": 24,
+  "fallas": 0,
+  "resultados": [
+    {
+      "comprobacion": "HSTS con includeSubDomains",
+      "ok": true,
+      "detalle": ""
+    },
+    {
+      "comprobacion": "CSP default-src 'none'",
+      "ok": true,
+      "detalle": "img-src 'self'; base-uri 'self'; default-src 'none'; style-src 'self' 'nonce-LaJ"
+    },
+    {
+      "comprobacion": "CSP sin 'unsafe-inline' ni 'unsafe-eval'",
+      "ok": true,
+      "detalle": ""
+    },
+    {
+      "comprobacion": "CSP frame-ancestors 'none'",
+      "ok": true,
+      "detalle": ""
+    },
+    {
+      "comprobacion": "CSP con nonce por solicitud",
+      "ok": true,
+      "detalle": ""
+    },
+    {
+      "comprobacion": "El nonce cambia en cada respuesta",
+      "ok": true,
+      "detalle": ""
+    },
+    {
+      "comprobacion": "X-Content-Type-Options: nosniff",
+      "ok": true,
+      "detalle": ""
+    },
+    {
+      "comprobacion": "X-Frame-Options: DENY",
+      "ok": true,
+      "detalle": ""
+    },
+    {
+      "comprobacion": "Referrer-Policy restrictiva",
+      "ok": true,
+      "detalle": ""
+    },
+    {
+      "comprobacion": "Permissions-Policy presente",
+      "ok": true,
+      "detalle": ""
+    },
+    {
+      "comprobacion": "Cross-Origin-Opener-Policy",
+      "ok": true,
+      "detalle": ""
+    },
+    {
+      "comprobacion": "Cross-Origin-Resource-Policy",
+      "ok": true,
+      "detalle": ""
+    },
+    {
+      "comprobacion": "Respuestas con datos sin caché",
+      "ok": true,
+      "detalle": ""
+    },
+    {
+      "comprobacion": "No revela la versión del servidor",
+      "ok": true,
+      "detalle": ""
+    },
+    {
+      "comprobacion": "Hay cookie CSRF",
+      "ok": true,
+      "detalle": ""
+    },
+    {
+      "comprobacion": "__Host-csrftoken: Secure, HttpOnly, SameSite, prefijo __Host-, Path=/ y sin Domain",
+      "ok": true,
+      "detalle": "__Host-csrftoken=99oJHinyiCn3BtEYwvZG0H1uVJUsEtOK; expires=Fri, 29 Oct 2027 16:21:01 GMT; HttpOnly; Max-Age=31449600; Path=/; SameSite=Lax; Secure"
+    },
+    {
+      "comprobacion": "404 sin traza ni detalles técnicos",
+      "ok": true,
+      "detalle": ""
+    },
+    {
+      "comprobacion": "TRACE no permitido",
+      "ok": true,
+      "detalle": ""
+    },
+    {
+      "comprobacion": "POST sin token CSRF rechazado (403)",
+      "ok": true,
+      "detalle": ""
+    },
+    {
+      "comprobacion": "Host no permitido rechazado",
+      "ok": true,
+      "detalle": ""
+    },
+    {
+      "comprobacion": "TLS 1.0 rechazado",
+      "ok": true,
+      "detalle": ""
+    },
+    {
+      "comprobacion": "TLS 1.1 rechazado",
+      "ok": true,
+      "detalle": ""
+    },
+    {
+      "comprobacion": "Se negocia TLS 1.2 o superior",
+      "ok": true,
+      "detalle": "TLSv1.3"
+    },
+    {
+      "comprobacion": "HTTP redirige a HTTPS",
+      "ok": true,
+      "detalle": "301"
+    }
+  ]
+}

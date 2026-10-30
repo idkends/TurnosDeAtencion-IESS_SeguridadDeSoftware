@@ -142,15 +142,15 @@ def ejecutar_vencimiento(ahora: datetime | None = None, *, archivo_auditoria: st
         turnos.retirar_agenda_de(persona_id, anonimo, motivo="INACTIVIDAD")
         delegaciones.revocar_todas_de(persona_id)
         n += cuentas.anonimizar_cuenta(persona_id, motivo="INACTIVIDAD_24_MESES")
-    constancias.append(_constancia("cuentas_inactivas", "ANONIMIZACION", n, ahora, ahora - timedelta(days=30 * P.retencion_cuenta_inactiva_meses)))
+    constancias.append(_constancia("cuentas_inactivas", "ANONIMIZACION", n, ahora, ahora - timedelta(days=P.dias_por_mes * P.retencion_cuenta_inactiva_meses)))
 
-    constancias.append(_constancia("turnos", "ANONIMIZACION", turnos.anonimizar_turnos_vencidos(P.retencion_turnos_meses, anonimo), ahora, ahora - timedelta(days=30 * P.retencion_turnos_meses)))
-    constancias.append(_constancia("restricciones", "ELIMINACION", turnos.purgar_restricciones_vencidas(P.retencion_restricciones_meses), ahora, ahora - timedelta(days=30 * P.retencion_restricciones_meses)))
-    constancias.append(_constancia("delegaciones", "ELIMINACION", delegaciones.purgar_vencidas(P.retencion_delegaciones_meses), ahora, ahora - timedelta(days=30 * P.retencion_delegaciones_meses)))
-    constancias.append(_constancia("notificaciones", "ELIMINACION", notificaciones.purgar_antiguas(P.notificaciones_conservacion_meses), ahora, ahora - timedelta(days=30 * P.notificaciones_conservacion_meses)))
+    constancias.append(_constancia("turnos", "ANONIMIZACION", turnos.anonimizar_turnos_vencidos(P.retencion_turnos_meses, anonimo), ahora, ahora - timedelta(days=P.dias_por_mes * P.retencion_turnos_meses)))
+    constancias.append(_constancia("restricciones", "ELIMINACION", turnos.purgar_restricciones_vencidas(P.retencion_restricciones_meses), ahora, ahora - timedelta(days=P.dias_por_mes * P.retencion_restricciones_meses)))
+    constancias.append(_constancia("delegaciones", "ELIMINACION", delegaciones.purgar_vencidas(P.retencion_delegaciones_meses), ahora, ahora - timedelta(days=P.dias_por_mes * P.retencion_delegaciones_meses)))
+    constancias.append(_constancia("notificaciones", "ELIMINACION", notificaciones.purgar_antiguas(P.notificaciones_conservacion_meses), ahora, ahora - timedelta(days=P.dias_por_mes * P.notificaciones_conservacion_meses)))
     constancias.append(_constancia("credenciales_vencidas", "ELIMINACION", cuentas.purgar_credenciales_vencidas(P.retencion_codigos_dias), ahora, ahora - timedelta(days=P.retencion_codigos_dias)))
     if archivo_auditoria:
-        corte = ahora - timedelta(days=30 * P.auditoria_meses_en_linea)
+        corte = ahora - timedelta(days=P.dias_por_mes * P.auditoria_meses_en_linea)
         constancias.append(_constancia("auditoria", "ARCHIVO", auditoria.archivar_antiguos(corte, archivo_auditoria), ahora, corte))
 
     auditoria.registrar(accion=Acciones.VENCIMIENTO_EJECUTADO, recurso_tipo="retencion", detalle={c.categoria: c.cantidad for c in constancias})
@@ -176,8 +176,8 @@ def solicitar_exportacion(usuario, *, motivo: str, desde: datetime, hasta: datet
         auditoria.registrar(accion=Acciones.ACCESO_DENEGADO, actor=usuario, resultado=auditoria.DENEGADO, recurso_tipo="exportacion")
         raise AccesoDenegado()
     motivo = (motivo or "").strip()
-    if len(motivo) < 10 or hasta <= desde or hasta - desde > timedelta(days=31):
-        raise DerechosRechazado("EXPORTACION_INVALIDA", "Indique el motivo (mínimo 10 caracteres) y un rango de hasta 31 días.")
+    if len(motivo) < P.exportacion_motivo_minimo or hasta <= desde or hasta - desde > timedelta(days=P.exportacion_dias_maximos):
+        raise DerechosRechazado("EXPORTACION_INVALIDA", f"Indique el motivo (mínimo {P.exportacion_motivo_minimo} caracteres) y un rango de hasta {P.exportacion_dias_maximos} días.")
     with transaction.atomic():
         e = SolicitudExportacion.objects.create(solicitante_id=usuario.id, alcance="AUDITORIA", motivo=motivo[:200], desde=desde, hasta=hasta, creada=reloj.ahora())
         auditoria.registrar(accion=Acciones.EXPORTACION_SOLICITADA, actor=usuario, recurso_tipo="exportacion", recurso_id=e.id, detalle={"alcance": "AUDITORIA"})

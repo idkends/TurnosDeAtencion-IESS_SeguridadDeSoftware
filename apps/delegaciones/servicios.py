@@ -203,8 +203,8 @@ def listar_delegaciones(usuario) -> tuple[list[DelegacionVista], list[Delegacion
         raise AccesoDenegado()
     ahora = reloj.ahora()
     base = Delegacion.objects.filter(estado=EstadoDelegacion.ACTIVA, vence__gt=ahora)
-    otorgadas = list(base.filter(titular_id=usuario.id).order_by("-inicio")[:50])
-    recibidas = list(base.filter(representante_id=usuario.id).order_by("-inicio")[:50])
+    otorgadas = list(base.filter(titular_id=usuario.id).order_by("-inicio")[:P.delegaciones_listado_maximo])
+    recibidas = list(base.filter(representante_id=usuario.id).order_by("-inicio")[:P.delegaciones_listado_maximo])
     nombres = _nombres(otorgadas + recibidas)
     return [_vista(d, nombres, usuario) for d in otorgadas], [_vista(d, nombres, usuario) for d in recibidas]
 
@@ -244,7 +244,7 @@ def purgar_vencidas(meses: int) -> int:
     """Relaciones de representación: vigencia más 12 meses tras posibles controversias; luego se eliminan (sección 2.2)."""
     from datetime import timedelta
 
-    corte = reloj.ahora() - timedelta(days=30 * meses)
+    corte = reloj.ahora() - timedelta(days=P.dias_por_mes * meses)
     from django.db.models import Q
 
     return Delegacion.objects.filter(Q(vence__lt=corte) | Q(revocada_en__lt=corte)).delete()[0]

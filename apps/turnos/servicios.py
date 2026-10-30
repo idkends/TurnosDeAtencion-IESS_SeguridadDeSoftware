@@ -1371,10 +1371,10 @@ def _anonimizar_turnos(consulta, anonimo_id) -> int:
 
 def anonimizar_turnos_vencidos(meses: int, anonimo_id) -> int:
     """Turnos con más de `meses` (12) meses de la cita: pasan a agregado anónimo (la agenda histórica no identifica a nadie)."""
-    corte = reloj.ahora() - timedelta(days=30 * meses)
+    corte = reloj.ahora() - timedelta(days=P.dias_por_mes * meses)
     return _anonimizar_turnos(Turno.objects.filter(inicio__lt=corte).exclude(afiliado_id=anonimo_id), anonimo_id)
 
 
 def purgar_restricciones_vencidas(meses: int) -> int:
-    corte = reloj.ahora() - timedelta(days=30 * meses)
+    corte = reloj.ahora() - timedelta(days=P.dias_por_mes * meses)
     return Restriccion.objects.filter(fin__lt=corte).delete()[0]

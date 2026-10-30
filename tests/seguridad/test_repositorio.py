@@ -149,3 +149,15 @@ def test_T18_las_aplicaciones_corren_como_usuario_no_root():
     dockerfile = (RAIZ / "Dockerfile").read_text(encoding="utf-8")
     final = dockerfile.split("AS final", 1)[1]
     assert re.search(r"^USER app$", final, re.M) and "useradd --system --uid 10001" in final
+
+
+def test_T18_main_no_contiene_ninguna_falla_intencional_de_la_rama_de_laboratorio():
+    """La rama `lab/inseguro` marca sus fallas con «INSEGURO A PROPÓSITO»; si ese texto llega a main, alguien integró laboratorio a producción.
+
+    (Esta prueba FALLA en lab/inseguro a propósito: es la guardia que impide integrarla.)
+    """
+    marca = "INSEGURO A PROP" + "ÓSITO"  # partido para que este archivo no se detecte a sí mismo
+    halladas = [str(r.relative_to(RAIZ)) for r, texto in _archivos_de_texto() if marca in texto and r.suffix in {".py", ".html", ".conf", ".yml"}
+                and "tests" not in r.relative_to(RAIZ).parts]
+    assert halladas == [], halladas
+    assert not list((RAIZ / "apps").rglob("*lab_inseguro*")), "migraciones de laboratorio en main"

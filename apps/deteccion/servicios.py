@@ -123,7 +123,7 @@ def d04_enumeracion_de_cedulas(ahora):
 
 
 def d05_dispositivo_nuevo(ahora):
-    desde = ahora - timedelta(minutes=15)
+    desde = ahora - timedelta(minutes=P.d06_ventana_ip_minutos)
     return [Hallazgo("D05", INFORMATIVA, "Inicio de sesión desde un dispositivo nuevo", f"ev:{e['secuencia']}", {"evento": e["secuencia"]})
             for e in auditoria.consultar_ventana([Acciones.DISPOSITIVO_NUEVO], desde)]
 
@@ -140,7 +140,7 @@ def d06_acaparamiento_de_turnos(ahora):
                  for c, k in por_cuenta.items() if k > P.d06_intentos_por_hora_cuenta]
     hallazgos += [
         Hallazgo("D06", MEDIA, "Varias cuentas reservando desde una misma IP", f"ip:{ip}:{n}", {"origen": _prefijo_ip(ip), "cuentas": len(c)},
-                 "Origen limitado 10 min y revisión", lambda ip=ip: bloqueos.bloquear_origen(ip, 600, "D06"))
+                 f"Origen limitado {P.d06_bloqueo_origen_segundos // 60} min y revisión", lambda ip=ip: bloqueos.bloquear_origen(ip, P.d06_bloqueo_origen_segundos, "D06"))
         for ip, c in cuentas_por_ip.items() if len(c) >= P.d06_cuentas_distintas_por_ip
     ]
     return hallazgos
@@ -187,7 +187,7 @@ def d09_exportaciones(ahora):
 def d10_acceso_de_emergencia(ahora):
     desde = ahora - timedelta(days=1)
     return [Hallazgo("D10", ALTA, "Acceso excepcional (de emergencia) a datos de un afiliado", f"ev:{e['secuencia']}", {"evento": e["secuencia"]},
-                     "Aviso inmediato al responsable; revisión posterior", vence_en=ahora + timedelta(days=7))
+                     "Aviso inmediato al responsable; revisión posterior", vence_en=ahora + timedelta(days=P.d10_revision_dias))
             for e in auditoria.consultar_ventana([Acciones.ACCESO_EMERGENCIA], desde)]
 
 
@@ -215,7 +215,7 @@ def d13_latencia(ahora):
 
 
 def d14_fallos_de_terceros(ahora):
-    eventos = auditoria.consultar_ventana([Acciones.AFILIACION_NO_DISPONIBLE, Acciones.AGENDA_NO_DISPONIBLE], ahora - timedelta(minutes=10))
+    eventos = auditoria.consultar_ventana([Acciones.AFILIACION_NO_DISPONIBLE, Acciones.AGENDA_NO_DISPONIBLE], ahora - timedelta(minutes=P.d14_ventana_minutos))
     tiempos = [e["ocurrido_en"] for e in eventos]
     ancho = timedelta(seconds=P.d14_ventana_segundos)
     for i in range(len(tiempos)):
@@ -232,7 +232,7 @@ def d15_respaldos(ahora):
     hallazgos = [Hallazgo("D15", ALTA, "Falló la copia de respaldo", f"ev:{e['secuencia']}", dict(e["detalle"] or {}), "Corregir antes del siguiente ciclo")
                  for e in auditoria.consultar_ventana([Acciones.RESPALDO_FALLIDO], ahora - timedelta(days=2))]
     # Solo exige la prueba si el sistema ya lleva más de 90 días haciendo respaldos (el primero es anterior al plazo).
-    hubo_respaldos = auditoria.consultar_ventana([Acciones.RESPALDO_REALIZADO], ahora - timedelta(days=365), hasta=ahora - timedelta(days=P.d15_dias_sin_prueba_restauracion), limite=1)
+    hubo_respaldos = auditoria.consultar_ventana([Acciones.RESPALDO_REALIZADO], ahora - timedelta(days=P.d15_historial_respaldos_dias), hasta=ahora - timedelta(days=P.d15_dias_sin_prueba_restauracion), limite=1)
     if hubo_respaldos:
         probada = auditoria.consultar_ventana([Acciones.RESTAURACION_PROBADA], ahora - timedelta(days=P.d15_dias_sin_prueba_restauracion), limite=1)
         if not probada:
@@ -244,7 +244,7 @@ def d16_vulnerabilidades(ahora):
     return [
         Hallazgo("D16", ALTA, "CVE crítico o del catálogo KEV en una dependencia", f"ev:{e['secuencia']}", dict(e["detalle"] or {}), f"Ticket con plazo de {P.d16_plazo_horas} h",
                  vence_en=e["ocurrido_en"] + timedelta(hours=P.d16_plazo_horas))
-        for e in auditoria.consultar_ventana([Acciones.VULNERABILIDAD_DETECTADA], ahora - timedelta(days=7)) if (e["detalle"] or {}).get("severidad") in ("CRITICA", "KEV")
+        for e in auditoria.consultar_ventana([Acciones.VULNERABILIDAD_DETECTADA], ahora - timedelta(days=P.d16_ventana_dias)) if (e["detalle"] or {}).get("severidad") in ("CRITICA", "KEV")
     ]
 
 

@@ -304,3 +304,29 @@ con constancia por categoría; eliminación a petición con anonimización y ór
 
 `FormateadorSeguro` (más patrones), `rotar_secretos_totp` (idempotencia), `docker-compose.yml` (WAL, volúmenes, comando de `db`), `.env.example` y
 `generar_env.py` (`RESPALDO_CLAVE`), nuevas columnas en `cuentas`/`turnos`/`auditoria` (migraciones `0004`, `0003`, `0003`).
+
+## 10. Etapa 4: verificación automática, demostraciones y entrega
+
+**Verificación con un comando.** `scripts/verify.sh` (`make verify`) levanta el entorno si hace falta y ejecuta, en orden: pytest con cobertura (incluye la
+prueba de arquitectura), `lint-imports`, `check --deploy --fail-level WARNING`, Bandit, pip-audit (con `--require-hashes`; las excepciones solo en
+`scripts/pip_audit_ignorar.txt`, con justificación), SBOM CycloneDX, gitleaks sobre todo el historial (`.gitleaks.toml`), cabeceras/cookies/TLS contra
+la aplicación viva (`scripts/verificar_cabeceras.py`), verificación de la cadena de auditoría, comprobación de que la rama insegura no está integrada y la
+trazabilidad. `--completo` añade carga k6, ZAP y respaldo + restauración. Todo deja informes con fecha en `docs/evidencia/` y un resumen con la versión del código.
+
+**Trazabilidad automática.** Las pruebas llevan su identificador en el nombre (`test_T07_…`, `test_CA09_…`); `scripts/trazabilidad.py` las descubre por AST,
+las cruza con los datos del informe (`scripts/trazabilidad_datos.py`: Anexo C, §10.1, §10.2, Anexo G) y genera `docs/trazabilidad.md`; falla si algún riesgo,
+requisito, módulo, prueba T o caso CA queda sin función de prueba.
+
+**Cambios de código por la verificación** (el resto de la etapa es verificación y documentación):
+- `config/parametros.py`: 11 parámetros nuevos (ventanas de detección, exportaciones, retención) que estaban literales en servicios; `catalogos_cache_segundos`
+  y `disponibilidad_fragmento_cache_segundos`.
+- Rendimiento (T09): `config/limites.incrementar` (contador atómico con una sola ida a Redis, usado por límites y métricas); caché de catálogos y fragmento de
+  disponibilidad para visitantes (sin datos personales); `WEB_CONCURRENCY` para gunicorn.
+- Cabeceras: respuestas de error de nginx con las mismas cabeceras (`docker/nginx/cabeceras_error.conf`), `config/estaticos.py` para los estáticos,
+  `Cross-Origin-Embedder-Policy` y CORS cerrado.
+- `config/settings/prod.py`: excepciones en vez de `assert`.
+- Comando `usuarios_demo` (+ `cuentas.servicios.preparar_cuenta_demo`): cuentas sintéticas con clave aleatoria para demostraciones y ZAP.
+- Contenedores endurecidos e imágenes con versión y resumen (ver `docs/despliegue.md`).
+
+**Demostraciones.** La rama `lab/inseguro` (con migraciones `0004_lab_inseguro` en `turnos` y `auditoria`) y los scripts `scripts/demos/demo_[a-f].sh` están
+descritos en `docs/demos.md`. `test_T18_main_no_contiene_ninguna_falla_intencional…` impide que una marca de laboratorio llegue a `main`.

@@ -15,7 +15,8 @@ COMPLETO=0; [ "${1:-}" = "--completo" ] && COMPLETO=1
 MARCA="$(date -u +%Y%m%dT%H%M%SZ)"
 EV="docs/evidencia"
 mkdir -p "$EV"
-RESULTADOS="$(mktemp)"
+RESULTADOS="$EV/.verificacion_$MARCA.tsv"   # ruta relativa: Python de Windows no entiende /tmp de Git Bash
+: > "$RESULTADOS"
 VERDE=$'\033[32m'; ROJO=$'\033[31m'; FIN=$'\033[0m'
 
 paso() {   # paso "<nombre>" <comando...>  → ejecuta, mide y registra (nombre|estado|segundos)
@@ -89,6 +90,12 @@ paso "7. gitleaks (secretos en todo el historial de git)" gitleaks
 # --- 8-9. Cabeceras/cookies/TLS y cadena de auditoría --------------------------------------------------------------------------------------------
 paso "8. Cabeceras, cookies y TLS contra la aplicación en ejecución" python scripts/verificar_cabeceras.py
 paso "9. Verificación de la cadena de auditoría" docker compose exec -T app python manage.py verificar_auditoria
+
+lab_aislado() {   # la rama insegura jamás debe estar integrada a la principal
+  if git rev-parse --verify -q lab/inseguro > /dev/null; then ! git merge-base --is-ancestor lab/inseguro HEAD || { echo "  lab/inseguro YA está integrada en esta rama"; return 1; }; fi
+  ! grep -rIl "INSEGURO A PROP""ÓSITO" apps config templates docker-compose.yml 2> /dev/null
+}
+paso "9b. La rama insegura lab/inseguro no está integrada ni dejó marcas en el código" lab_aislado
 
 # --- 10. Trazabilidad -------------------------------------------------------------------------------------------------------------------------------
 paso "10. Trazabilidad (ningún riesgo, requisito, prueba T ni caso CA sin prueba)" python scripts/trazabilidad.py

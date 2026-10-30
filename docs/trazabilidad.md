@@ -1,6 +1,6 @@
 # Matriz de trazabilidad (generada)
 
-> Generado por `scripts/trazabilidad.py` el 2026-10-30 15:14 UTC a partir de los nombres de las pruebas. No editar a mano.
+> Generado por `scripts/trazabilidad.py` el 2026-10-30 16:36 UTC a partir de los nombres de las pruebas. No editar a mano.
 > Los vínculos vienen del Anexo C, §10.1, §10.2 y Anexo G del informe (`scripts/trazabilidad_datos.py`).
 
 ## Resumen
@@ -10,7 +10,7 @@
 - Riesgos R01..R23 con prueba: **23/23**
 - Requisitos I01..I14 con prueba: **14/14**
 - Módulos M01..M14 con prueba: **14/14**
-- Funciones de prueba nombradas con identificador: **91**
+- Funciones de prueba nombradas con identificador: **97**
 
 ## Del requisito a la prueba
 
@@ -77,11 +77,11 @@
 | T11b | Auditoría de solo adición: alteración detectada | R22 | 2: `apps/auditoria/tests/test_cadena.py::test_T11b_una_fila_alterada_a_mano_la_detecta_la_verificacion`<br>`apps/auditoria/tests/test_cadena.py::test_T11b_una_fila_borrada_en_medio_rompe_la_cadena` |
 | T12 | Simulacro de incidente y suplantación (enlaces, dominios, muchas cédulas desde una IP) | R20 R23 | 3: `apps/deteccion/tests/test_reglas.py::test_T12_D04_enumeracion_de_30_cedulas_desde_una_ip_bloquea_el_origen`<br>`tests/seguridad/test_verificacion_informe.py::test_T12_el_plan_de_respuesta_define_responsables_plazos_formato_y_simulacros`<br>`tests/seguridad/test_verificacion_informe.py::test_T12_ningun_mensaje_pide_la_clave_ni_un_codigo_por_correo_o_sms` |
 | T13 | Cambiar el identificador de un turno o afiliado: 403/404 y registro | R15 | 2: `tests/seguridad/test_endpoints.py::test_T13_IDOR_en_las_acciones_sobre_un_turno_ajeno_da_404_y_no_cambia_nada`<br>`tests/seguridad/test_endpoints.py::test_T13_IDOR_el_representante_sin_delegacion_tampoco_actua_sobre_turnos_ajenos` |
-| T14 | Inyección SQL, XSS y CSRF; análisis estático | R16 | 1: `tests/seguridad/test_configuracion.py::test_T14_R16_el_csrf_esta_activo_y_rechaza_posts_sin_token` |
+| T14 | Inyección SQL, XSS y CSRF; análisis estático | R16 | 3: `tests/seguridad/test_configuracion.py::test_T14_R16_el_csrf_esta_activo_y_rechaza_posts_sin_token`<br>`tests/seguridad/test_verificacion_informe.py::test_T14_el_ultimo_analisis_de_ZAP_no_tiene_hallazgos_altos_ni_medios_sin_justificar`<br>`tests/seguridad/test_verificacion_informe.py::test_T14_cada_IGNORE_de_ZAP_lleva_justificacion` |
 | T15 | Dependencias, SBOM y versión de Django | R17 | 3: `tests/seguridad/test_verificacion_informe.py::test_T15_django_esta_en_la_linea_5_2_LTS_y_todo_esta_fijado_con_hashes`<br>`tests/seguridad/test_verificacion_informe.py::test_T15_la_ultima_verificacion_de_dependencias_no_tiene_criticos_ni_altos`<br>`tests/seguridad/test_verificacion_informe.py::test_T15_existe_un_SBOM_CycloneDX_valido_de_la_ultima_verificacion` |
 | T16 | Reglas de turnos: segunda reserva, tope, solape, seis representados, muchas cédulas | R12 | 4: `apps/delegaciones/tests/test_delegaciones.py::test_T16_el_limite_de_5_representados_cuenta_solo_las_delegaciones_vigentes`<br>`apps/turnos/tests/test_reserva.py::test_T16_tope_de_3_citas_activas_en_total`<br>`apps/turnos/tests/test_reserva.py::test_T16_sin_solape_de_horario_para_la_misma_persona`<br>`tests/concurrencia/test_reservas_concurrentes.py::test_T16_RT01_la_misma_persona_en_20_franjas_a_la_vez_obtiene_un_solo_turno_por_especialidad` |
 | T17 | Confirmación/expiración, inasistencias, justificación, apelación, prioritarios | R14 | 1: `apps/turnos/tests/test_inasistencias.py::test_T17_justificar_dentro_de_72_horas_revierte_la_inasistencia_y_la_restriccion` |
-| T18 | check --deploy, cabeceras, cookies, TLS, DEBUG y secretos | R09 | 2: `tests/seguridad/test_configuracion.py::test_T18_check_deploy_en_produccion_no_da_advertencias`<br>`tests/seguridad/test_configuracion.py::test_T18_check_deploy_falla_si_se_debilita_la_configuracion` |
+| T18 | check --deploy, cabeceras, cookies, TLS, DEBUG y secretos | R09 | 6: `tests/seguridad/test_configuracion.py::test_T18_check_deploy_en_produccion_no_da_advertencias`<br>`tests/seguridad/test_configuracion.py::test_T18_check_deploy_falla_si_se_debilita_la_configuracion`<br>`tests/seguridad/test_repositorio.py::test_T18_los_servicios_estan_endurecidos_sin_root_solo_lectura_sin_capacidades_y_con_limites`<br>`tests/seguridad/test_repositorio.py::test_T18_las_imagenes_tienen_version_y_resumen_fijados`<br>… (+2) |
 
 ## Casos de abuso CA-01 a CA-16
 

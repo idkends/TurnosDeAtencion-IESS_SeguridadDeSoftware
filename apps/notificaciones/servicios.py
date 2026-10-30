@@ -215,7 +215,7 @@ def invalidar_enlace_por_ref(token_ref: str) -> int:
 
 def purgar_antiguas(meses: int) -> int:
     """Registro de notificaciones: 6 meses (prueba de aviso); después se elimina. También los enlaces vencidos."""
-    corte = reloj.ahora() - timedelta(days=30 * meses)
+    corte = reloj.ahora() - timedelta(days=P.dias_por_mes * meses)
     n = Notificacion.objects.filter(creada__lt=corte).delete()[0]
-    n += TokenEnlace.objects.filter(expira__lt=reloj.ahora() - timedelta(days=7)).delete()[0]
+    n += TokenEnlace.objects.filter(expira__lt=reloj.ahora() - timedelta(days=P.enlaces_vencidos_conservacion_dias)).delete()[0]
     return n

@@ -1,0 +1,157 @@
+════════════════════════════════════════════════════════════════════════════
+ DEMO A — Clave inicial = fecha de nacimiento y mensajes de login distintos (M01, R05/R18)
+ (Falla INTENCIONAL en lab/inseguro: la cuenta nueva usa la fecha de nacimiento como clave y el login dice «la cédula no existe» / «clave incorrecta»)
+════════════════════════════════════════════════════════════════════════════
+
+▌ ANTES — rama INSEGURA (lab/inseguro) en https://localhost:9443
+
+  → Víctima: afiliado sintético 1750000083 (cuenta recién creada, nunca la usó). El atacante conoce su fecha de nacimiento.
+    login con la fecha «19920505»  →  HTTP 302
+    sesión abierta como Sofía Marco Espinoza Benítez
+
+  → Enumeración: ¿el mensaje delata qué cédulas existen?
+    cédula inexistente   → «Cédula no registrada en el sistema.»
+    cédula con clave mala → «Clave incorrecta.»
+
+  █ ATAQUE EXITOSO — objetivo VULNERABLE: entra con la fecha de nacimiento: True; mensajes distintos (enumeración): True
+
+▌ DESPUÉS — rama principal (main) en https://localhost:8443
+
+  → Víctima: afiliado sintético 1750000083 (cuenta recién creada, nunca la usó). El atacante conoce su fecha de nacimiento.
+    login con la fecha «19920505»  →  HTTP 200
+    login con la fecha «05051992»  →  HTTP 200
+    login con la fecha «1992-05-05»  →  HTTP 200
+
+  → Enumeración: ¿el mensaje delata qué cédulas existen?
+    cédula inexistente   → «No fue posible iniciar sesión. Verifique su cédula y su clave, o intente más tarde.»
+    cédula con clave mala → «No fue posible iniciar sesión. Verifique su cédula y su clave, o intente más tarde.»
+
+  █ ATAQUE BLOQUEADO — objetivo SEGURO: la fecha de nacimiento no autentica y el mensaje es idéntico exista o no la cédula (R05, R18)
+
+────────────────────────────────────────────────────────────────────────────
+ RESULTADO: ✔ el ataque funciona en lab/inseguro y FALLA en main (como se esperaba).
+demo_a exit=0
+════════════════════════════════════════════════════════════════════════════
+ DEMO B — IDOR: cambiar el identificador de /turnos/{id} (M03, R15)
+ (Falla INTENCIONAL en lab/inseguro: /turnos/{id} no comprueba que el turno sea de quien lo pide)
+════════════════════════════════════════════════════════════════════════════
+
+▌ ANTES — rama INSEGURA (lab/inseguro) en https://localhost:9443
+
+  → La víctima A (1750000117) reserva su turno: /turnos/b687fe40-b33d-47be-b16e-3a04b3fc3faa
+
+  → El atacante B (1750000125, otra cuenta) pide la MISMA dirección
+    GET /turnos/b687fe40-b33d-47be-b16e-3a04b3fc3faa como B → HTTP 200;   turno inexistente → HTTP 404
+    B ve los datos de A: «Andrés Ana Ortiz Reyes»
+
+  █ ATAQUE EXITOSO — objetivo VULNERABLE: cualquiera con otro identificador lee turnos ajenos (R15)
+
+▌ DESPUÉS — rama principal (main) en https://localhost:8443
+
+  → La víctima A (1750000117) reserva su turno: /turnos/4ec6ea5b-6cb2-4c9f-98fd-8c6a9b04e8a3
+
+  → El atacante B (1750000125, otra cuenta) pide la MISMA dirección
+    GET /turnos/4ec6ea5b-6cb2-4c9f-98fd-8c6a9b04e8a3 como B → HTTP 404;   turno inexistente → HTTP 404
+
+  █ ATAQUE BLOQUEADO — objetivo SEGURO: B recibe HTTP 404, igual que para un turno inexistente: no se revela ni que existe (autorización por objeto)
+
+────────────────────────────────────────────────────────────────────────────
+ RESULTADO: ✔ el ataque funciona en lab/inseguro y FALLA en main (como se esperaba).
+demo_b exit=0
+════════════════════════════════════════════════════════════════════════════
+ DEMO C — Doble reserva por concurrencia (M04, R13)
+ (Falla INTENCIONAL en lab/inseguro: sin bloqueo de fila ni índice único: dos personas obtienen la misma franja)
+════════════════════════════════════════════════════════════════════════════
+
+▌ ANTES — rama INSEGURA (lab/inseguro) en https://localhost:9443
+
+  → 8 personas distintas reservan A LA VEZ la misma última franja (0a8c0d46…)
+    respuestas: 8× redirección (turno creado), 0× 409 (franja ocupada), otras: []
+    turnos activos en la base para esa franja: 8
+
+  █ ATAQUE EXITOSO — objetivo VULNERABLE: 8 turnos para UNA franja (doble reserva, R13)
+
+▌ DESPUÉS — rama principal (main) en https://localhost:8443
+
+  → 8 personas distintas reservan A LA VEZ la misma última franja (0181a97a…)
+    respuestas: 1× redirección (turno creado), 7× 409 (franja ocupada), otras: []
+    turnos activos en la base para esa franja: 1
+
+  █ ATAQUE BLOQUEADO — objetivo SEGURO: exactamente 1 turno: lo garantizan el bloqueo de fila y el índice único de la base (RT-04)
+
+────────────────────────────────────────────────────────────────────────────
+ RESULTADO: ✔ el ataque funciona en lab/inseguro y FALLA en main (como se esperaba).
+demo_c exit=0
+════════════════════════════════════════════════════════════════════════════
+ DEMO D — Registro de auditoría editable (M07, R22)
+ (Falla INTENCIONAL en lab/inseguro: la base permite UPDATE y DELETE sobre la auditoría (sin disparador ni permisos de solo adición))
+════════════════════════════════════════════════════════════════════════════
+
+▌ ANTES — rama INSEGURA (lab/inseguro) en https://localhost:9443
+
+  → Un supervisor con acceso a la aplicación intenta BORRAR la huella de un acceso fallido
+    evento a ocultar: secuencia 414
+    UPDATE → UPDATE 1
+    DELETE → DELETE 1
+    verificar_auditoria → Cadena íntegra: 412 eventos verificados.
+
+  █ ATAQUE EXITOSO — objetivo VULNERABLE: la base deja editar y borrar la auditoría (R22)
+
+▌ DESPUÉS — rama principal (main) en https://localhost:8443
+
+  → Un supervisor con acceso a la aplicación intenta BORRAR la huella de un acceso fallido
+    evento a ocultar: secuencia 14624
+    UPDATE → ERROR:  permission denied for table auditoria_evento
+    DELETE → ERROR:  permission denied for table auditoria_evento
+    verificar_auditoria → Cadena íntegra: 14624 eventos verificados.
+
+  █ ATAQUE BLOQUEADO — objetivo SEGURO: la base rechaza UPDATE/DELETE/TRUNCATE (permisos + disparador): solo adición
+
+────────────────────────────────────────────────────────────────────────────
+ RESULTADO: ✔ el ataque funciona en lab/inseguro y FALLA en main (como se esperaba).
+demo_d exit=0
+════════════════════════════════════════════════════════════════════════════
+ DEMO E — Servicio de afiliación caído y cobertura falsa (M08, R07)
+ (Falla INTENCIONAL en lab/inseguro: si el tercero no responde, el portal da por buena la afiliación y confirma el turno)
+════════════════════════════════════════════════════════════════════════════
+
+▌ ANTES — rama INSEGURA (lab/inseguro) en https://localhost:9443
+
+  → La persona 1750000497 NO está afiliada. El servicio de afiliación se cae (o el atacante lo hace caer).
+    reserva → HTTP 302; estado del turno: «Reservado»
+
+  █ ATAQUE EXITOSO — objetivo VULNERABLE: turno «Reservado» para una persona sin cobertura: se inventó la afiliación (R07)
+
+▌ DESPUÉS — rama principal (main) en https://localhost:8443
+
+  → La persona 1750000497 NO está afiliada. El servicio de afiliación se cae (o el atacante lo hace caer).
+    reserva → HTTP 302; estado del turno: «Pendiente»
+
+  █ ATAQUE BLOQUEADO — objetivo SEGURO: el turno queda «Pendiente» o se rechaza: nunca se afirma una cobertura que no se pudo comprobar (RT-10)
+
+────────────────────────────────────────────────────────────────────────────
+ RESULTADO: ✔ el ataque funciona en lab/inseguro y FALLA en main (como se esperaba).
+demo_e exit=0
+════════════════════════════════════════════════════════════════════════════
+ DEMO F — Enlace de recuperación envenenado con la cabecera Host (M01, R20)
+ (Falla INTENCIONAL en lab/inseguro: el enlace se arma con la cabecera Host y se aceptan todos los Host)
+════════════════════════════════════════════════════════════════════════════
+
+▌ ANTES — rama INSEGURA (lab/inseguro) en https://localhost:9443
+
+  → El atacante pide recuperar la cuenta de 1750000133 pero envía «Host: atacante.example»; el correo llegará a la VÍCTIMA
+    POST /cuenta/recuperar/ → HTTP 200
+    enlace que recibe la víctima: https://atacante.example/cuenta/restablecer/<token>/
+
+  █ ATAQUE EXITOSO — objetivo VULNERABLE: el enlace apunta al dominio del atacante: al hacer clic, este recibe el token (R20)
+
+▌ DESPUÉS — rama principal (main) en https://localhost:8443
+
+  → El atacante pide recuperar la cuenta de 1750000133 pero envía «Host: atacante.example»; el correo llegará a la VÍCTIMA
+    GET /cuenta/recuperar/ con Host «atacante.example» → HTTP 400 (Host no permitido); no se genera ningún enlace
+
+  █ ATAQUE BLOQUEADO — objetivo SEGURO: HTTP 400: el Host falso se rechaza y los enlaces usan el dominio FIJO de la configuración (CA-16)
+
+────────────────────────────────────────────────────────────────────────────
+ RESULTADO: ✔ el ataque funciona en lab/inseguro y FALLA en main (como se esperaba).
+demo_f exit=0
