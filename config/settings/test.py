@@ -4,6 +4,7 @@ import secrets
 
 for _nombre in ("DJANGO_SECRET_KEY", "HMAC_TOKENS_CLAVE"):
     os.environ.setdefault(_nombre, secrets.token_urlsafe(64))
+os.environ.setdefault("PARAM_TIEMPO_MINIMO_RESPUESTA_AUTH_MS", "120")  # pruebas rápidas; en producción 350 ms
 os.environ.setdefault("ALLOWED_HOSTS", "testserver,localhost")
 os.environ.setdefault("URL_BASE", "https://portal.prueba.local")
 os.environ.setdefault("AUDITORIA_CLAVES", "1=" + secrets.token_hex(32) + ",2=" + secrets.token_hex(32))
@@ -31,3 +32,5 @@ STORAGES = {
 }
 NOTIFICACIONES_ADAPTADOR = "memoria"
 AFILIACION_ADAPTADOR = "memoria"
+
+MIDDLEWARE = [m for m in MIDDLEWARE if "whitenoise" not in m]  # sin directorio de estáticos compilados en pruebas

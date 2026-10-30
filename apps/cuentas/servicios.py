@@ -207,7 +207,7 @@ def _cache():
 def _bloqueada(cedula: str) -> bool:
     _, k_hasta = _claves_estado(cedula)
     hasta = _cache().get(k_hasta)
-    return bool(hasta and time.time() < hasta)
+    return bool(hasta and reloj.ahora().timestamp() < hasta)
 
 
 def _registrar_fallo(cedula: str) -> bool:
@@ -219,7 +219,7 @@ def _registrar_fallo(cedula: str) -> bool:
     fallos = cache.incr(k_fallos)
     if fallos % P.login_fallos_por_escalon == 0:
         escalon = min(fallos // P.login_fallos_por_escalon - 1, len(P.login_esperas_minutos) - 1)
-        cache.set(k_hasta, time.time() + P.login_esperas_minutos[escalon] * 60, timeout=ttl)
+        cache.set(k_hasta, reloj.ahora().timestamp() + P.login_esperas_minutos[escalon] * 60, timeout=ttl)
         return True
     return False
 
@@ -381,7 +381,7 @@ def autenticar(request, cedula_cruda: str, clave: str) -> ResultadoLogin:
     if politicas.requiere_mfa(usuario):
         request.session["preauth"] = {
             "uid": str(usuario.id),
-            "hasta": time.time() + P.preautenticacion_minutos * 60,
+            "hasta": reloj.ahora().timestamp() + P.preautenticacion_minutos * 60,
         }
         estado = "MFA_CONFIGURAR" if politicas.debe_configurar_mfa(usuario) else "MFA_REQUERIDO"
         return ResultadoLogin(estado=estado)
@@ -390,7 +390,7 @@ def autenticar(request, cedula_cruda: str, clave: str) -> ResultadoLogin:
 
 def _usuario_preautenticado(request) -> Usuario:
     datos = request.session.get("preauth")
-    if not datos or time.time() > datos.get("hasta", 0):
+    if not datos or reloj.ahora().timestamp() > datos.get("hasta", 0):
         request.session.pop("preauth", None)
         raise CredencialesInvalidas()
     usuario = Usuario.objects.filter(pk=datos["uid"]).first()
@@ -512,7 +512,7 @@ def obtener_configuracion_mfa(request) -> ConfiguracionMfa:
     uri = pyotp.TOTP(secreto, digits=P.totp_digitos, interval=P.totp_periodo_segundos).provisioning_uri(
         name=usuario.cedula, issuer_name="Portal de turnos IESS (prueba)"
     )
-    qr = segno.make(uri, error="m").svg_inline(scale=5, border=2, xmldecl=False, nl=False)
+    qr = segno.make(uri, error="m").svg_inline(scale=5, border=2)
     return ConfiguracionMfa(secreto=secreto, uri=uri, qr_svg=mark_safe(qr))  # SVG generado por segno a partir del URI propio
 
 
