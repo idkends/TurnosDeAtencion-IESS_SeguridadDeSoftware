@@ -12,7 +12,7 @@ from django.http import HttpResponseNotAllowed
 from django.shortcuts import render
 from django.urls import register_converter
 
-from config import contexto, limites
+from config import bloqueos, contexto, limites
 from config.inventario import INVENTARIO
 from config.parametros import P
 
@@ -56,10 +56,24 @@ def endpoint(id_endpoint: str):
             autenticado = request.user.is_authenticated
             if entrada.requiere_sesion and not autenticado:
                 return redirect_to_login(request.get_full_path())
+            if entrada.sala_espera and bloqueos.sala_espera_activa():
+                # Sala de espera simple: solo se admite un número fijo de solicitudes por segundo; el resto espera.
+                if not limites.consumir("sala-espera", "global", P.sala_espera_admision_por_segundo, 1).permitido:
+                    limite_excedido.send(sender=None, ambito=f"sala_espera:{id_endpoint}", usuario_id=request.user.pk if autenticado else None)
+                    respuesta = render(request, "errores/sala_espera.html", status=503)
+                    respuesta["Retry-After"] = "5"
+                    return respuesta
             for ambito, por, parametro, ventana in entrada.limites:
                 if por == "cuenta" and not autenticado:
                     continue
-                identificador = str(request.user.pk) if por == "cuenta" else (contexto.actual().ip or "desconocida")
+                if por == "dispositivo":
+                    identificador = contexto.actual().dispositivo
+                    if not identificador:
+                        continue  # sin cookie de dispositivo no hay dimensión de dispositivo que limitar
+                elif por == "cuenta":
+                    identificador = str(request.user.pk)
+                else:
+                    identificador = contexto.actual().ip or "desconocida"
                 resultado = limites.consumir(f"{ambito}:{id_endpoint}", identificador, getattr(P, parametro), ventana)
                 if not resultado.permitido:
                     limite_excedido.send(sender=None, ambito=f"{ambito}:{id_endpoint}", usuario_id=request.user.pk if autenticado else None)

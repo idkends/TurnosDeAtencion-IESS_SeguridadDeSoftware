@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block titulo %}Exportaciones{% endblock %}
+{% block contenido %}
+  <h1>Exportaciones puntuales de auditoría</h1>
+  <p class="ayuda">No hay exportación masiva: cada exportación necesita un motivo, un rango de hasta 31 días y la aprobación de una segunda persona. Se entrega una sola vez.</p>
+  <div class="tarjeta">
+    <form method="post" action="{% url 'derechos:exportaciones' %}">{% csrf_token %}
+      {% include "componentes/campos.html" %}
+      <button class="boton" type="submit">Solicitar exportación</button>
+    </form>
+  </div>
+  <div class="tarjeta">
+    <table>
+      <caption class="ayuda">Solicitudes recientes</caption>
+      <thead><tr><th scope="col">Motivo</th><th scope="col">Rango</th><th scope="col">Estado</th><th scope="col"><span class="ayuda">Acción</span></th></tr></thead>
+      <tbody>
+      {% for e in exportaciones %}
+        <tr><td>{{ e.motivo }}</td><td>{{ e.desde|date:"d/m/Y" }} – {{ e.hasta|date:"d/m/Y" }}</td><td>{{ e.estado }}</td>
+          <td>{% if e.puede_aprobar %}<form method="post" action="{% url 'derechos:aprobar' e.id %}">{% csrf_token %}<button class="boton secundario" type="submit">Aprobar</button></form>{% endif %}
+              {% if e.puede_descargar %}<a class="boton" href="{% url 'derechos:descargar' e.id %}">Descargar (una vez)</a>{% endif %}</td></tr>
+      {% empty %}<tr><td colspan="4">Sin solicitudes.</td></tr>{% endfor %}
+      </tbody>
+    </table>
+  </div>
+{% endblock %}

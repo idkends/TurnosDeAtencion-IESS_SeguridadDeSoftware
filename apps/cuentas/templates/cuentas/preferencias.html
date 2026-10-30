@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block titulo %}Preferencias{% endblock %}
+{% block contenido %}
+  <h1>Preferencias de aviso</h1>
+  <div class="tarjeta">
+    <p>Los recordatorios llegan por correo. Puede aceptar también el SMS; es opcional y puede retirarlo cuando quiera. La atención no depende de este consentimiento.</p>
+    {% if oposicion %}<p role="status"><strong>Usted ejerció su derecho de oposición:</strong> no recibe recordatorios.</p>{% endif %}
+    <form method="post" action="{% url 'cuentas:preferencias' %}">{% csrf_token %}
+      {% include "componentes/campos.html" %}
+      <button class="boton" type="submit">Guardar</button>
+    </form>
+  </div>
+{% endblock %}

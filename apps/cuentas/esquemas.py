@@ -82,6 +82,21 @@ class RestablecerClaveForm(_ConClaveRepetida):
     )
 
 
+class ContactoCambioForm(FormularioEstricto):
+    paso = forms.ChoiceField(choices=[("solicitar", "solicitar"), ("confirmar", "confirmar")])
+    campo = forms.ChoiceField(required=False, choices=[("CORREO", "Correo"), ("TELEFONO", "Teléfono")])
+    valor = forms.CharField(required=False, max_length=120, strip=True)
+    codigo = forms.CharField(required=False, max_length=12, strip=True)
+
+
+class PreferenciasForm(FormularioEstricto):
+    consentimiento_sms = forms.BooleanField(required=False, label="Acepto recibir recordatorios por SMS")
+
+
+class SoporteRecuperacionForm(FormularioEstricto):
+    verificacion_presencial = forms.BooleanField(required=False)
+
+
 class CerrarSesionForm(FormularioEstricto):
     alcance = forms.ChoiceField(required=False, choices=[("actual", "actual"), ("una", "una"), ("todas", "todas")])
     sesion = forms.UUIDField(required=False)

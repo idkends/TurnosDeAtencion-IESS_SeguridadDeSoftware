@@ -20,7 +20,7 @@ def test_todas_las_plantillas_son_neutrales():
 def test_solo_los_enlaces_de_un_solo_uso_pueden_llevar_url():
     for nombre, (_, cuerpo) in servicios.PLANTILLAS.items():
         tiene_url = "{enlace}" in cuerpo or "http" in cuerpo
-        assert tiene_url == (nombre == "recuperacion"), nombre  # ningún otro mensaje abre información
+        assert tiene_url == (nombre in ("recuperacion", "recordatorio")), nombre  # solo enlaces de un solo uso que llevan a iniciar sesión
 
 
 def test_una_plantilla_inexistente_no_se_envia():

@@ -174,6 +174,25 @@ def test_META_la_regla_de_vista_fina_detecta_orm_modelos_y_permisos(tmp_path):
         assert esperado in problemas, (esperado, problemas)
 
 
+def test_META_la_regla_de_escrituras_no_confunde_la_cache_con_el_orm(tmp_path):
+    f = tmp_path / "bloqueos.py"
+    f.write_text("def f():
+    _cache().delete('k')
+    caches['x'].delete('k')
+", encoding="utf-8")
+    assert reglas.violaciones_escritura_fuera_de_servicios(f) == []
+
+
+def test_el_archivo_importlinter_esta_generado_y_al_dia():
+    """Si se agrega una app o un módulo de capa, hay que regenerar los contratos (scripts/generar_importlinter.py)."""
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location("generar_importlinter", RAIZ / "scripts" / "generar_importlinter.py")
+    modulo = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(modulo)
+    assert (RAIZ / ".importlinter").read_text(encoding="utf-8") == modulo.generar()
+
+
 def test_META_la_regla_de_escrituras_detecta_save_create_y_update(tmp_path):
     malo = tmp_path / "ayuda.py"
     malo.write_text("def f(m):\n    m.objects.create(a=1)\n    m.objects.filter(a=1).update(b=2)\n    x.save()\n", encoding="utf-8")

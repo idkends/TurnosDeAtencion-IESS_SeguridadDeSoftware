@@ -1,0 +1,7 @@
+{% extends "base.html" %}
+{% block titulo %}Operación en espera{% endblock %}
+{% block contenido %}
+  <h1>Esta operación está en espera</h1>
+  <div class="tarjeta" role="status"><p>Por seguridad, después de cambiar su contacto las operaciones sensibles esperan 24 horas. Podrá hacerla desde el {{ hasta|date:"d/m/Y H:i" }}.</p>
+  <p class="ayuda">Si usted no cambió su contacto, comuníquese de inmediato con su unidad de atención.</p></div>
+{% endblock %}

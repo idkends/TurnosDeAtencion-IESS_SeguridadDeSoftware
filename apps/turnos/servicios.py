@@ -12,6 +12,7 @@ import re
 from dataclasses import dataclass, field
 from datetime import date, datetime, time, timedelta
 
+from django.conf import settings
 from django.core.cache import caches
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
@@ -37,6 +38,7 @@ from .modelos import (
     EstadoTurno,
     Franja,
     MotivoTurno,
+    Recordatorio,
     Restriccion,
     SolicitudReserva,
     Turno,
@@ -49,7 +51,7 @@ __all__ = [
     "ReglaRechazada", "FranjaVista", "TurnoVista", "asegurar_catalogos", "generar_franjas", "buscar_disponibilidad", "catalogos",
     "reservar", "listar_turnos", "detalle_turno", "confirmar_turno", "cancelar_turno", "deshacer_cancelacion", "reprogramar_turno",
     "apelar_restriccion", "resolver_apelacion", "restricciones_de", "registrar_atencion", "agenda_unidad", "consultar_afiliado",
-    "expirar_vencidos", "conciliar_pendientes", "recalcular_restricciones", "pantalla_disponibilidad", "pantalla_turnos",
+    "expirar_vencidos", "conciliar_pendientes", "recalcular_restricciones", "pantalla_disponibilidad", "pantalla_turnos", "listar_oferta", "crear_jornada", "cerrar_franja", "enviar_recordatorios", "acceso_emergencia", "historial_de", "retirar_agenda_de", "anonimizar_turnos_vencidos", "purgar_restricciones_vencidas", "ContactoVista",
 ]
 
 MENSAJE_GENERICO = (
@@ -448,6 +450,7 @@ def _cargar_turno(solicitante, turno_id, *, para="gestionar", bloquear=False) ->
     except (ValueError, TypeError, ValidationError):
         t = None
     if t is None:
+        auditoria.registrar(accion=Acciones.ACCESO_DENEGADO, actor=solicitante, resultado=auditoria.DENEGADO, recurso_tipo="turno", detalle={"motivo": "inexistente"})
         raise NoEncontrado()
     vigente = False if t.afiliado_id == solicitante.id else delegaciones.delegacion_vigente(t.afiliado_id, solicitante.id)
     if para == "gestionar":
@@ -485,6 +488,8 @@ def listar_turnos(solicitante, *, afiliado_id=None, estado=None, pagina=1, taman
 def detalle_turno(solicitante, turno_id) -> TurnoVista:
     """E07. Si el turno se puede reprogramar, incluye franjas alternativas de la misma oferta."""
     t, vigente = _cargar_turno(solicitante, turno_id, para="ver")
+    if t.afiliado_id != solicitante.id and not vigente:  # lectura por el personal: queda registrada (D08)
+        auditoria.registrar(accion=Acciones.FICHA_CONSULTADA, actor=solicitante, recurso_tipo="turno", recurso_id=t.id)
     vista = _vista_turno(t, solicitante, delegacion_vigente=vigente)
     if vista.puede_reprogramar:
         alternativas = buscar_disponibilidad(especialidad=t.especialidad.codigo, establecimiento=t.franja.establecimiento.codigo, usuario=solicitante).franjas
@@ -1168,3 +1173,198 @@ def pantalla_turnos(usuario, *, afiliado_id=None, estado=None, pagina=1, tamano=
     lista = listar_turnos(usuario, afiliado_id=afiliado_id, estado=estado, pagina=pagina, tamano=tamano)
     objetivo = afiliado_id or usuario.id
     return PantallaTurnos(lista, restricciones_de(usuario, objetivo), delegaciones.representados_de(usuario), objetivo)
+
+
+# --- Etapa 3: oferta, recordatorios, acceso excepcional, historial para derechos y retención -------------------------------------------------
+
+
+def _unidad_o_denegar(usuario, politica):
+    if not politica:
+        auditoria.registrar(accion=Acciones.ACCESO_DENEGADO, actor=usuario, resultado=auditoria.DENEGADO, recurso_tipo="oferta")
+        raise AccesoDenegado()
+
+
+@dataclass(frozen=True)
+class FranjaOferta:
+    id: object
+    inicio: datetime
+    fin: datetime
+    especialidad: str
+    estado: str
+    estado_texto: str
+    cupo_prioritario: bool
+    puede_cerrar: bool
+
+
+def listar_oferta(usuario, *, fecha: date | None = None, pagina=1, tamano=None) -> tuple[list[FranjaOferta], int, dict]:
+    """Franjas de la unidad de quien administra la oferta (solo SU unidad)."""
+    est = getattr(usuario, "establecimiento_id", None)
+    _unidad_o_denegar(usuario, politicas.puede_gestionar_oferta(usuario, est))
+    pagina, tamano = _paginar(pagina, tamano)
+    fecha = fecha or zona.localdate(reloj.ahora())
+    inicio_dia = zona.make_aware(datetime.combine(fecha, time.min))
+    consulta = Franja.objects.select_related("especialidad").filter(establecimiento_id=est, inicio__gte=inicio_dia, inicio__lt=inicio_dia + timedelta(days=1))
+    total = consulta.count()
+    desde = (pagina - 1) * tamano
+    filas = [
+        FranjaOferta(f.id, f.inicio, f.fin, f.especialidad.nombre, f.estado, EstadoFranja(f.estado).label, f.cupo_prioritario, f.estado != EstadoFranja.CERRADA)
+        for f in consulta.order_by("inicio", "especialidad__nombre")[desde : desde + tamano]
+    ]
+    return filas, total, catalogos()
+
+
+def crear_jornada(usuario, *, especialidad: str, fecha: date, desde_hora: time, hasta_hora: time, duracion_min: int, ultima_prioritaria: bool = False) -> int:
+    """Crea las franjas de una jornada para la unidad del administrador de oferta. Idempotente por la restricción única."""
+    est = getattr(usuario, "establecimiento_id", None)
+    _unidad_o_denegar(usuario, politicas.puede_gestionar_oferta(usuario, est))
+    if not (10 <= duracion_min <= 120) or desde_hora >= hasta_hora:
+        raise ReglaRechazada("JORNADA_INVALIDA", "La jornada no es válida: revise las horas y la duración (10 a 120 minutos).")
+    ahora = reloj.ahora()
+    hoy = zona.localdate(ahora)
+    if fecha < hoy or fecha > hoy + timedelta(days=P.turnos_dias_anticipacion):
+        raise ReglaRechazada("FUERA_DE_VENTANA", f"Solo se puede crear oferta para los próximos {P.turnos_dias_anticipacion} días.")
+    esp = Especialidad.objects.filter(codigo=especialidad, activa=True).first()
+    if esp is None:
+        raise ParametroInvalido("especialidad")
+    inicio = zona.make_aware(datetime.combine(fecha, desde_hora))
+    fin_jornada = zona.make_aware(datetime.combine(fecha, hasta_hora))
+    creadas, tramos = 0, []
+    while inicio + timedelta(minutes=duracion_min) <= fin_jornada and len(tramos) < 48:
+        tramos.append(inicio)
+        inicio += timedelta(minutes=duracion_min)
+    with transaction.atomic():
+        for i, t0 in enumerate(tramos):
+            _, nueva = Franja.objects.get_or_create(
+                establecimiento_id=est, especialidad=esp, inicio=t0,
+                defaults={"fin": t0 + timedelta(minutes=duracion_min), "estado": EstadoFranja.LIBRE, "cupo_prioritario": ultima_prioritaria and i == len(tramos) - 1},
+            )
+            creadas += nueva
+        auditoria.registrar(accion=Acciones.OFERTA_MODIFICADA, actor=usuario, recurso_tipo="franja", detalle={"creadas": creadas, "fecha": fecha.isoformat(), "especialidad": especialidad})
+    return creadas
+
+
+def cerrar_franja(usuario, franja_id) -> str:
+    """Retira un cupo de la oferta. Si ya tenía un turno activo, la INSTITUCIÓN lo cancela con aviso (no el afiliado)."""
+    est = getattr(usuario, "establecimiento_id", None)
+    _unidad_o_denegar(usuario, politicas.puede_gestionar_oferta(usuario, est))
+    try:
+        f = Franja.objects.filter(pk=franja_id, establecimiento_id=est).first()  # una franja de otra unidad = inexistente
+    except (ValueError, TypeError, ValidationError):
+        f = None
+    if f is None:
+        raise NoEncontrado()
+    turno_id = Turno.objects.filter(franja_id=f.id, estado__in=ESTADOS_ACTIVOS).values_list("id", flat=True).first()
+    if turno_id:
+        _cancelar_por_institucion(turno_id, "OFERTA_CERRADA")
+    with transaction.atomic():
+        Franja.objects.filter(pk=f.id).update(estado=EstadoFranja.CERRADA)
+        auditoria.registrar(accion=Acciones.OFERTA_MODIFICADA, actor=usuario, recurso_tipo="franja", recurso_id=f.id, detalle={"cierre": True, "turno_cancelado": bool(turno_id)})
+    return "CERRADA"
+
+
+def enviar_recordatorios() -> dict:
+    """Recordatorios neutrales a las 72 h y 24 h antes de la cita (RESERVADO o CONFIRMADO), una sola vez por turno y plazo.
+
+    Con enlace de un solo uso (24 h) que solo lleva a iniciar sesión. SMS únicamente con consentimiento; la oposición los detiene.
+    """
+    ahora = reloj.ahora()
+    enviados = omitidos = 0
+    horizonte = ahora + timedelta(hours=max(P.recordatorio_horas))
+    candidatos = _turno_con_relaciones().filter(estado__in=[EstadoTurno.RESERVADO, EstadoTurno.CONFIRMADO], inicio__gt=ahora, inicio__lte=horizonte)
+    for t in candidatos:
+        faltan = t.inicio - ahora
+        for horas in sorted(P.recordatorio_horas):  # primero el más cercano: si ya está dentro de 24 h no se manda el de 72 h
+            if faltan <= timedelta(hours=horas):
+                if Recordatorio.objects.filter(turno=t).filter(horas__lte=horas).exists():
+                    break  # ya se envió este plazo (o uno más cercano)
+                canal, destino = cuentas.contacto_para_recordatorio(t.afiliado_id)
+                if not destino:
+                    omitidos += 1
+                    break
+                try:
+                    with transaction.atomic():
+                        Recordatorio.objects.create(turno=t, horas=horas, enviado_en=ahora)
+                except IntegrityError:
+                    break
+                token = notificaciones.crear_enlace(destinatario_id=t.afiliado_id, turno_id=t.id)
+                notificaciones.enviar(
+                    plantilla="recordatorio", canal=canal, destino=destino,
+                    parametros={"fecha": _fmt_fecha(t.inicio), "enlace": f"{settings.URL_BASE}/enlaces/{token}"}, destinatario_id=t.afiliado_id,
+                )
+                auditoria.registrar(accion=Acciones.RECORDATORIO_ENVIADO, actor_id=t.afiliado_id, recurso_tipo="turno", recurso_id=t.id, detalle={"horas": horas, "canal": canal})
+                enviados += 1
+                break
+    return {"enviados": enviados, "omitidos": omitidos}
+
+
+def acceso_emergencia(funcionario, cedula: str, motivo: str) -> ContactoVista:
+    """Acceso EXCEPCIONAL («de emergencia») a los datos completos de un afiliado, fuera de la relación con la unidad.
+
+    Solo con motivo escrito, con AVISO INMEDIATO a los responsables y con revisión posterior (la regla D10 abre una alerta que
+    permanece abierta hasta que alguien la reconozca). No existe una variante silenciosa.
+    """
+    if not politicas.puede_acceso_emergencia(funcionario):
+        auditoria.registrar(accion=Acciones.ACCESO_DENEGADO, actor=funcionario, resultado=auditoria.DENEGADO, recurso_tipo="afiliado", detalle={"intento": "emergencia"})
+        raise AccesoDenegado()
+    motivo = (motivo or "").strip()
+    if len(motivo) < P.emergencia_motivo_minimo:
+        raise ReglaRechazada("MOTIVO_INSUFICIENTE", f"Describa el motivo de la emergencia (mínimo {P.emergencia_motivo_minimo} caracteres).")
+    cuentas.limitar_por_cuenta("emergencia", funcionario.id, 5, 3600)
+    contacto = cuentas.contacto_por_cedula(cedula)
+    if contacto is None:
+        raise NoEncontrado()
+    auditoria.registrar(accion=Acciones.ACCESO_EMERGENCIA, actor=funcionario, recurso_tipo="afiliado", recurso_id=contacto.persona_id, detalle={"motivo": motivo[:200]})
+    for correo in cuentas.contactos_de_responsables():  # aviso inmediato
+        notificaciones.enviar(plantilla="emergencia_acceso", canal="CORREO", destino=correo)
+    return ContactoVista(f"{contacto.nombres} {contacto.apellidos}".strip(), contacto.cedula, contacto.correo, contacto.telefono, True)
+
+
+def historial_de(persona_id) -> list[dict]:
+    """Turnos de la persona en formato legible por máquina (derecho de acceso): sin datos de terceros ni clínicos."""
+    return [
+        {"id": str(t.id), "estado": t.estado, "inicio": t.inicio.isoformat(), "fin": t.fin.isoformat(), "especialidad": t.especialidad.nombre,
+         "establecimiento": t.franja.establecimiento.nombre, "reprogramaciones": t.reprogramaciones, "creado": t.creado.isoformat()}
+        for t in _turno_con_relaciones().filter(afiliado_id=persona_id).order_by("-inicio")
+    ] + [
+        {"restriccion": r.tipo, "causa": r.causa, "inicio": r.inicio.isoformat(), "fin": r.fin.isoformat(), "revertida": bool(r.revertida_en)}
+        for r in Restriccion.objects.filter(afiliado_id=persona_id)
+    ]
+
+
+def retirar_agenda_de(persona_id, anonimo_id, *, motivo: str) -> int:
+    """Eliminación a pedido del titular: cancela sus turnos activos y reasigna TODO su historial a la cuenta anónima
+    (se conserva el agregado de la agenda, no la persona). Devuelve cuántos turnos se anonimizaron."""
+    for turno_id in list(Turno.objects.filter(afiliado_id=persona_id, estado__in=ESTADOS_ACTIVOS).values_list("id", flat=True)):
+        with transaction.atomic():
+            t = Turno.objects.select_for_update().get(pk=turno_id)
+            if t.estado in ESTADOS_ACTIVOS:
+                t.estado, t.cancelado_en = EstadoTurno.CANCELADO_AFILIADO, reloj.ahora()
+                t.save(update_fields=["estado", "cancelado_en", "actualizado"])
+                Franja.objects.filter(pk=t.franja_id).update(estado=EstadoFranja.LIBRE)
+        integraciones.cancelar_en_agenda(str(turno_id))
+    return _anonimizar_turnos(Turno.objects.filter(afiliado_id=persona_id), anonimo_id)
+
+
+def _anonimizar_turnos(consulta, anonimo_id) -> int:
+    consulta = consulta.exclude(estado__in=ESTADOS_ACTIVOS)
+    ids = list(consulta.values_list("id", flat=True))
+    if not ids:
+        return 0
+    afiliados = set(Turno.objects.filter(id__in=ids).values_list("afiliado_id", flat=True))
+    Apelacion.objects.filter(turno_id__in=ids).update(texto="", afiliado_id=anonimo_id)
+    Restriccion.objects.filter(turno_origen_id__in=ids).update(turno_origen=None)
+    SolicitudReserva.objects.filter(turno_id__in=ids).delete()
+    Turno.objects.filter(id__in=ids).update(afiliado_id=anonimo_id, solicitante_id=anonimo_id, motivo="")
+    Restriccion.objects.filter(afiliado_id__in=afiliados).exclude(afiliado_id=anonimo_id).filter(revertida_en__isnull=False).delete()
+    return len(ids)
+
+
+def anonimizar_turnos_vencidos(meses: int, anonimo_id) -> int:
+    """Turnos con más de `meses` (12) meses de la cita: pasan a agregado anónimo (la agenda histórica no identifica a nadie)."""
+    corte = reloj.ahora() - timedelta(days=30 * meses)
+    return _anonimizar_turnos(Turno.objects.filter(inicio__lt=corte).exclude(afiliado_id=anonimo_id), anonimo_id)
+
+
+def purgar_restricciones_vencidas(meses: int) -> int:
+    corte = reloj.ahora() - timedelta(days=30 * meses)
+    return Restriccion.objects.filter(fin__lt=corte).delete()[0]

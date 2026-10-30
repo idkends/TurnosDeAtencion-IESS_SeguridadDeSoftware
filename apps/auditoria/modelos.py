@@ -47,3 +47,25 @@ class EventoAuditoria(models.Model):
 
     def delete(self, *args, **kwargs):
         raise RuntimeError("Los eventos de auditoría son de solo adición.")
+
+
+class CorreccionAuditoria(models.Model):
+    """Propuesta de corrección (NO edita la cadena): se convierte en un asiento nuevo cuando la aprueba un segundo supervisor."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    secuencia_original = models.BigIntegerField()
+    motivo = models.CharField(max_length=300)
+    autor_id = models.UUIDField()
+    estado = models.CharField(max_length=10, default="PENDIENTE")
+    aprobador_id = models.UUIDField(null=True, blank=True)
+    creada = models.DateTimeField()
+    resuelta_en = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        db_table = "auditoria_correccion"
+        default_permissions = ()
+        constraints = [
+            models.UniqueConstraint(fields=["secuencia_original"], condition=models.Q(estado="PENDIENTE"), name="uq_correccion_pendiente"),
+            models.CheckConstraint(condition=models.Q(estado__in=["PENDIENTE", "APROBADA"]), name="ck_correccion_estado"),
+            models.CheckConstraint(condition=~models.Q(aprobador_id=models.F("autor_id")), name="ck_correccion_segundo_supervisor"),
+        ]

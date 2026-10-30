@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block titulo %}Cuenta (soporte){% endblock %}
+{% block contenido %}
+  <h1>Datos técnicos de la cuenta</h1>
+  <p class="ayuda">Datos enmascarados. El soporte no ve claves ni secretos y no restablece claves por sí mismo.</p>
+  <div class="tarjeta">
+    <dl>
+      <dt>Cédula</dt><dd>{{ ficha.cedula_enmascarada }}</dd>
+      <dt>Correo</dt><dd>{{ ficha.correo_enmascarado }}</dd>
+      <dt>Teléfono</dt><dd>{{ ficha.telefono_enmascarado }}</dd>
+      <dt>Estado</dt><dd>{{ ficha.estado }}</dd>
+      <dt>Rol</dt><dd>{{ ficha.rol }}</dd>
+      <dt>Segundo factor configurado</dt><dd>{% if ficha.segundo_factor %}Sí{% else %}No{% endif %}</dd>
+      <dt>Sesiones activas</dt><dd>{{ ficha.sesiones_activas }}</dd>
+      <dt>Último ingreso</dt><dd>{{ ficha.ultimo_ingreso|date:"d/m/Y H:i"|default:"nunca" }}</dd>
+      <dt>Acceso temporalmente restringido</dt><dd>{% if ficha.bloqueada %}Sí{% else %}No{% endif %}</dd>
+    </dl>
+  </div>
+  <div class="tarjeta">
+    <h2>Iniciar la recuperación de acceso</h2>
+    <p>Solo después de verificar la identidad de la persona con su documento en ventanilla. El enlace llega al contacto registrado de la persona; usted no puede verlo.</p>
+    <form method="post" action="{% url 'cuentas:recuperacion_soporte' cedula %}">{% csrf_token %}
+      <div class="campo"><label><input type="checkbox" name="verificacion_presencial" value="on" required> Verifiqué la identidad con el documento original</label></div>
+      <button class="boton" type="submit">Iniciar recuperación</button>
+    </form>
+  </div>
+{% endblock %}

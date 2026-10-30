@@ -1,0 +1,8 @@
+{% if desafio %}
+  <div class="campo" role="group" aria-label="Verificación">
+    <label for="desafio_respuesta">Verificación: {{ desafio.pregunta }}</label>
+    <input type="hidden" name="desafio_token" value="{{ desafio.token }}">
+    <input id="desafio_respuesta" name="desafio_respuesta" inputmode="numeric" autocomplete="off" required>
+    <p class="ayuda">Por seguridad pedimos esta comprobación en momentos de actividad inusual.</p>
+  </div>
+{% endif %}

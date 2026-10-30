@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block titulo %}Cambiar contacto{% endblock %}
+{% block contenido %}
+  <h1>Cambiar mi correo o teléfono</h1>
+  <p class="ayuda">Pide su segundo factor. Enviamos un código al contacto NUEVO, avisamos al contacto anterior y, por seguridad, las operaciones sensibles esperan 24 horas.</p>
+  {% if form.non_field_errors %}<div role="alert" class="error">{% for e in form.non_field_errors %}<p>{{ e }}</p>{% endfor %}</div>{% endif %}
+  <div class="tarjeta">
+    <h2>1. Pedir el cambio</h2>
+    <form method="post" action="{% url 'cuentas:contacto' %}">{% csrf_token %}
+      <input type="hidden" name="paso" value="solicitar">
+      <div class="campo"><label for="campo">Qué desea cambiar</label><select id="campo" name="campo"><option value="CORREO">Correo</option><option value="TELEFONO">Teléfono</option></select></div>
+      <div class="campo"><label for="valor">Nuevo valor</label><input id="valor" name="valor" maxlength="120" required></div>
+      <button class="boton" type="submit">Enviar código</button>
+    </form>
+  </div>
+  <div class="tarjeta">
+    <h2>2. Confirmar con el código</h2>
+    <form method="post" action="{% url 'cuentas:contacto' %}">{% csrf_token %}
+      <input type="hidden" name="paso" value="confirmar">
+      <div class="campo"><label for="codigo">Código recibido</label><input id="codigo" name="codigo" inputmode="numeric" maxlength="12" autocomplete="one-time-code" required></div>
+      <button class="boton" type="submit">Confirmar cambio</button>
+    </form>
+  </div>
+{% endblock %}

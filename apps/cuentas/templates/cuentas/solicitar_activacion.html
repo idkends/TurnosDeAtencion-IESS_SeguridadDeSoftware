@@ -6,6 +6,7 @@
     <p>Ingrese su cédula. Si consta como afiliado vigente, enviaremos un código de un solo uso al contacto que el IESS tiene registrado. No es posible indicar otro contacto.</p>
     <form method="post" novalidate>{% csrf_token %}
       {% include "componentes/campos.html" %}
+      {% include "componentes/desafio.html" %}
       <div class="acciones">
         <button class="boton" type="submit">Enviar código</button>
         <a href="{% url 'cuentas:activar_confirmar' %}">Ya tengo un código</a>

@@ -72,7 +72,7 @@ def violaciones_escritura_fuera_de_servicios(ruta: Path) -> list[str]:
         if not (isinstance(nodo, ast.Call) and isinstance(nodo.func, ast.Attribute)):
             continue
         receptor = ast.unparse(nodo.func.value)
-        if nodo.func.attr in ESCRITURAS and not receptor.startswith("super("):
+        if nodo.func.attr in ESCRITURAS and not receptor.startswith("super(") and "cache" not in receptor.lower():  # cache.delete no es ORM
             problemas.append(f"línea {nodo.lineno}: .{nodo.func.attr}() fuera de servicios.py")
         if nodo.func.attr == "update" and (".objects" in receptor or ".filter(" in receptor or ".exclude(" in receptor):
             problemas.append(f"línea {nodo.lineno}: queryset.update() fuera de servicios.py")

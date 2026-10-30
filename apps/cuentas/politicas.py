@@ -217,3 +217,43 @@ def enmascarar_correo(correo: str) -> str:
 
 def enmascarar_telefono(telefono: str) -> str:
     return f"{telefono[:3]}****{telefono[-2:]}" if len(telefono) >= 7 else "****"
+
+
+# --- Etapa 3: paneles de funcionarios --------------------------------------------------------------------------------------------------------------
+
+
+def puede_ver_ficha_tecnica(usuario) -> bool:
+    """Soporte: datos técnicos y de contacto ENMASCARADOS. Nunca restablece claves por sí mismo."""
+    return _es(usuario, Rol.SOPORTE)
+
+
+def puede_gestionar_oferta(usuario, establecimiento_id) -> bool:
+    """Administración de oferta configura las franjas de SU unidad (nivel S)."""
+    if not _es(usuario, Rol.ADMIN_OFERTA) or usuario.establecimiento_id is None:
+        return False
+    return nivel(usuario, Permiso.CONFIGURAR_OFERTA) == "S" and usuario.establecimiento_id == establecimiento_id
+
+
+def puede_gestionar_alertas(usuario) -> bool:
+    """Panel de alertas de seguridad: auditor/DPD y administración de TI (el responsable de seguridad)."""
+    return _es(usuario, Rol.AUDITOR_DPD, Rol.ADMIN_TI)
+
+
+def puede_atender_derechos(usuario) -> bool:
+    """Solicitudes de derechos del titular: las atiende el delegado de protección de datos (auditor/DPD)."""
+    return _es(usuario, Rol.AUDITOR_DPD)
+
+
+def puede_aprobar_exportacion(usuario, solicitante_id) -> bool:
+    """Doble aprobación: aprueba el DPD o TI, y NUNCA quien la solicitó."""
+    return _es(usuario, Rol.AUDITOR_DPD, Rol.ADMIN_TI) and usuario.id != solicitante_id
+
+
+def puede_solicitar_exportacion(usuario) -> bool:
+    """Descarga puntual (nivel C: condicionada a la doble aprobación): solo auditoría/DPD."""
+    return nivel(usuario, Permiso.DESCARGA_MASIVA) == "C"
+
+
+def puede_acceso_emergencia(usuario) -> bool:
+    """Acceso excepcional («de emergencia»): personal de atención, solo con motivo, con aviso inmediato y revisión posterior."""
+    return _es(usuario, Rol.RECEPCION, Rol.PROFESIONAL) and usuario.establecimiento_id is not None

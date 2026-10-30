@@ -11,11 +11,18 @@
     </dl>
     <p class="ayuda">{% if contacto.completo %}Datos completos, mostrados con justificación registrada.{% else %}Datos enmascarados. Esta consulta quedó registrada.{% endif %}</p>
   </div>
+  {% if emergencia %}<p role="status" class="tarjeta"><strong>Acceso excepcional registrado.</strong> Se avisó de inmediato a los responsables y quedó pendiente de revisión posterior.</p>{% endif %}
   <form method="get" action="{% url 'turnos:afiliado' cedula_url %}" class="tarjeta">
     <div class="campo">
       <label for="justificacion">Justificación para ver los datos completos (mínimo 10 caracteres; queda registrada)</label>
       <input id="justificacion" name="justificacion" maxlength="200">
     </div>
     <button class="boton secundario" type="submit">Ver datos completos</button>
+  </form>
+  <form method="post" action="{% url 'turnos:emergencia' cedula_url %}" class="tarjeta">{% csrf_token %}
+    <h2>Acceso de emergencia</h2>
+    <p class="ayuda">Solo para una emergencia real. Exige un motivo, avisa de inmediato a los responsables y se revisa después.</p>
+    <div class="campo"><label for="motivo_emergencia">Motivo (mínimo 20 caracteres)</label><textarea id="motivo_emergencia" name="motivo" rows="3" maxlength="300" required></textarea></div>
+    <button class="boton secundario" type="submit">Registrar acceso de emergencia</button>
   </form>
 {% endblock %}

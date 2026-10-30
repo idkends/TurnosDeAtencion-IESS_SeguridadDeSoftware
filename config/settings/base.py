@@ -49,6 +49,8 @@ INSTALLED_APPS = [
     "apps.cuentas",
     "apps.delegaciones",
     "apps.turnos",
+    "apps.deteccion",
+    "apps.derechos",
 ]
 
 AUTH_USER_MODEL = "cuentas.Usuario"
@@ -62,6 +64,8 @@ MIDDLEWARE = [
     "csp.middleware.CSPMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "config.middleware.ContextoSolicitudMiddleware",
+    "config.middleware.BloqueoOrigenMiddleware",
+    "config.middleware.MetricasMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
@@ -209,7 +213,8 @@ IP_CLIENTE_CABECERA = env("IP_CLIENTE_CABECERA", "HTTP_X_FORWARDED_FOR", requeri
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,
-    "formatters": {"simple": {"format": "%(asctime)s %(levelname)s %(name)s %(message)s"}},
+    # Formateador seguro: redacta claves, tokens, cookies y números de 10 dígitos en TODO registro (R08).
+    "formatters": {"simple": {"()": "config.logging_redaccion.FormateadorSeguro", "format": "%(asctime)s %(levelname)s %(name)s %(message)s"}},
     "handlers": {"consola": {"class": "logging.StreamHandler", "formatter": "simple"}},
     "root": {"handlers": ["consola"], "level": "INFO"},
     "loggers": {"django.request": {"level": "WARNING"}},

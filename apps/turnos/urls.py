@@ -17,4 +17,7 @@ urlpatterns = [
     path("interno/turnos/<uuid:turno_id>/asistencia", vistas.asistencia, name="asistencia"),
     path("interno/agenda", vistas.agenda, name="agenda"),
     path("interno/afiliados/<cedula:cedula>", vistas.afiliado, name="afiliado"),
+    path("interno/afiliados/<cedula:cedula>/emergencia", vistas.emergencia, name="emergencia"),  # S25
+    path("oferta/franjas", despachar(GET=vistas.oferta, POST=vistas.crear_oferta), name="oferta"),  # S22 / S23
+    path("oferta/franjas/<uuid:franja_id>/cerrar", vistas.cerrar_oferta, name="cerrar_oferta"),  # S24
 ]

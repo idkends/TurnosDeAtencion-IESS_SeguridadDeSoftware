@@ -41,6 +41,10 @@ class Usuario(AbstractBaseUser):
     clave_cambiada_en = models.DateTimeField(null=True, blank=True)
     # RT-11: grupos de atención prioritaria (Constitución art. 35): cupos reservados y sin restricciones automáticas.
     atencion_prioritaria = models.BooleanField(default=False)
+    # Notificaciones: el SMS solo con consentimiento libre y específico (LOPDP art. 8); la oposición lo retira todo.
+    consentimiento_sms = models.BooleanField(default=False)
+    oposicion_recordatorios = models.BooleanField(default=False)
+    contacto_cambiado_en = models.DateTimeField(null=True, blank=True)  # espera de 24 h para operaciones sensibles (Anexo F)
     # Segundo factor (TOTP): secreto cifrado con Fernet; `totp_ultimo_paso` impide reutilizar un código.
     totp_secreto_cifrado = models.TextField(blank=True)
     totp_confirmado = models.BooleanField(default=False)
@@ -157,6 +161,9 @@ class SolicitudDerechos(models.Model):
     creada = models.DateTimeField()
     responder_requerimiento_antes_de = models.DateTimeField()
     atender_antes_de = models.DateTimeField()
+    atendida_en = models.DateTimeField(null=True, blank=True)
+    atendida_por = models.ForeignKey(Usuario, null=True, blank=True, on_delete=models.PROTECT, related_name="solicitudes_derechos_atendidas")
+    resultado = models.CharField(max_length=200, blank=True)
 
     class Meta:
         db_table = "cuentas_solicitud_derechos"
@@ -164,4 +171,26 @@ class SolicitudDerechos(models.Model):
         constraints = [
             models.CheckConstraint(condition=Q(tipo__in=[t.value for t in TipoDerecho]), name="ck_derechos_tipo"),
             models.CheckConstraint(condition=Q(estado__in=["RECIBIDA", "EN_ATENCION", "ATENDIDA"]), name="ck_derechos_estado"),
+        ]
+
+
+class CambioContacto(models.Model):
+    """Cambio de correo o teléfono: se confirma con un código enviado al contacto NUEVO (Anexo F)."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    usuario = models.ForeignKey(Usuario, on_delete=models.CASCADE, related_name="cambios_contacto")
+    campo = models.CharField(max_length=10)  # CORREO | TELEFONO
+    valor_nuevo = models.CharField(max_length=120)
+    codigo_hash = models.CharField(max_length=64)
+    creado = models.DateTimeField()
+    expira = models.DateTimeField()
+    intentos = models.PositiveSmallIntegerField(default=0)
+    usado = models.BooleanField(default=False)
+
+    class Meta:
+        db_table = "cuentas_cambio_contacto"
+        default_permissions = ()
+        constraints = [
+            models.UniqueConstraint(fields=["usuario"], condition=Q(usado=False), name="uq_cambio_contacto_vigente"),
+            models.CheckConstraint(condition=Q(campo__in=["CORREO", "TELEFONO"]), name="ck_cambio_contacto_campo"),
         ]

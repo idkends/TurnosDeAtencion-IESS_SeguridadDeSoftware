@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block titulo %}Alertas de seguridad{% endblock %}
+{% block contenido %}
+  <h1>Alertas de seguridad</h1>
+  <p class="ayuda">Generadas a partir de los eventos de auditoría (reglas D01 a D18). Sin datos personales: solo referencias y contadores.</p>
+  <div class="tarjeta" role="region" aria-label="Resumen">
+    <ul>{% for severidad, cantidad in panel.abiertas_por_severidad.items %}<li>{{ severidad }}: <strong>{{ cantidad }}</strong> abierta(s)</li>{% endfor %}</ul>
+  </div>
+  <form method="get" action="{% url 'deteccion:alertas' %}" class="tarjeta">
+    {% include "componentes/campos.html" %}
+    <button class="boton" type="submit">Filtrar</button>
+  </form>
+  <div class="tarjeta">
+    <table>
+      <caption class="ayuda">{{ panel.total }} alerta(s)</caption>
+      <thead><tr><th scope="col">Severidad</th><th scope="col">Regla</th><th scope="col">Alerta</th><th scope="col">Acción automática</th><th scope="col">Estado</th><th scope="col"><span class="ayuda">Atender</span></th></tr></thead>
+      <tbody>
+      {% for a in panel.alertas %}
+        <tr>
+          <td><strong>{{ a.severidad_texto }}</strong></td><td>{{ a.regla }}</td>
+          <td>{{ a.titulo }}<br><span class="ayuda">{{ a.creada|date:"d/m/Y H:i" }}{% if a.vence_en %} · plazo {{ a.vence_en|date:"d/m/Y H:i" }}{% endif %}</span>
+            <ul class="ayuda">{% for clave, valor in a.detalle.items %}<li>{{ clave }}: {{ valor }}</li>{% endfor %}</ul></td>
+          <td>{{ a.accion_automatica|default:"—" }}</td>
+          <td>{{ a.estado }}{% if a.nota %}<br><span class="ayuda">{{ a.nota }}</span>{% endif %}</td>
+          <td>{% if a.estado == "ABIERTA" %}
+            <form method="post" action="{% url 'deteccion:reconocer' a.id %}">{% csrf_token %}
+              <label for="n_{{ a.id }}" class="ayuda">Nota</label><input id="n_{{ a.id }}" name="nota" maxlength="300">
+              <button class="boton secundario" type="submit">Reconocer</button>
+            </form>{% endif %}</td>
+        </tr>
+      {% empty %}<tr><td colspan="6">Sin alertas.</td></tr>{% endfor %}
+      </tbody>
+    </table>
+    <div class="acciones">
+      {% if panel.pagina > 1 %}<a href="?pagina={{ panel.pagina|add:'-1' }}">Anterior</a>{% endif %}
+      {% if panel.hay_siguiente %}<a href="?pagina={{ panel.pagina|add:'1' }}">Siguiente</a>{% endif %}
+    </div>
+  </div>
+{% endblock %}

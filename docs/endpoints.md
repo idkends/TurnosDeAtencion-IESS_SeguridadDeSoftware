@@ -14,7 +14,7 @@ un recurso inexistente o ajeno.
 |---|---|---|---|---|---|---|---|
 | E01 | GET `/disponibilidad` | Franjas libres por especialidad, establecimiento y fecha | anonimo (sin datos personales) | No aplica | Parámetros en lista blanca; paginación; caché 30 s; 60 por minuto y por IP | Lectura: no aplica | R21, R12, T09 |
 | E02 | GET / POST `/cuentas/activar` | Activar la cuenta con el código de un solo uso (GET muestra el formulario) | credenciales (código, Anexo F) | El código pertenece a esa cédula | 5 intentos por código; mensajes genéricos; límites por IP | Token CSRF | R05, R18, T03 |
-| E03 | GET / POST `/sesion` | Iniciar sesión con cédula y clave (GET muestra el formulario) | credenciales | No aplica | Bloqueo progresivo; respuesta idéntica ante cédula inexistente; 10 por minuto y por IP | Token CSRF | R05, R18, R19, T03 |
+| E03 | GET / POST `/sesion` | Iniciar sesión con cédula y clave (GET muestra el formulario) | credenciales | No aplica | Bloqueo progresivo; respuesta idéntica ante cédula inexistente; 10 por minuto y por IP y por dispositivo; desafío adaptativo si la detección lo activa | Token CSRF | R05, R18, R19, T03 |
 | E04 | GET / POST `/sesion/segundo-factor` | Verificar TOTP o código de recuperación | sesion parcial (tras la clave) | La sesión parcial es de esa cuenta | 5 intentos y bloqueo; 10 por minuto y por IP | Token CSRF | R05, T03 |
 | E05 | POST `/sesion/cerrar` | Cerrar sesión (la actual, una de las propias o todas) | sesion | Propia | - | Token CSRF | R19, T03 |
 | E06 | GET `/turnos` | Lista de turnos del titular o de un representado | sesion | Propios o con delegación vigente; el titular se valida en el servidor | Paginación; filtros en lista blanca | Lectura | R15, R04, T13, T02 |
@@ -49,6 +49,23 @@ Pantallas de formularios y los pasos del Anexo F que el prototipo necesita. Pasa
 | S08 | GET / POST `/cuenta/recuperar/` | Pedir el enlace de recuperación de clave (Anexo F) | anonimo | El enlace va solo al contacto registrado | 5 por hora por cédula y 20 por IP; respuesta idéntica | Token CSRF | R03, R18, CA-05, CA-16 |
 | S09 | GET / POST `/cuenta/restablecer/{token}/` | Elegir una clave nueva con el token | token de un solo uso (128 bits, 15 min) | El token pertenece a esa cuenta; con 2.º factor si lo tiene | Un solo uso consumido en transacción | Token CSRF | R03, R19, CA-06 |
 | S10 | GET `/delegaciones` | Ver y gestionar las delegaciones propias (formulario de alta) | sesion | Propias | - | Lectura | R04 |
+| S11 | GET `/seguridad/alertas` | Panel de alertas de seguridad (reglas D01-D18) | funcionario con segundo factor | Auditor/DPD o administración de TI | Paginación; filtros en lista blanca | Lectura | R23, T12 |
+| S12 | POST `/seguridad/alertas/{id}/reconocer` | Reconocer una alerta (revisión posterior) | funcionario con segundo factor | Auditor/DPD o administración de TI | Nota de hasta 300 caracteres | Idempotente; token CSRF | R23 |
+| S13 | GET `/mis-datos/exportar` | Derecho de acceso: descargar los propios datos en JSON | sesion con segundo factor reciente | Solo el titular | Una descarga auditada | Lectura | N03, T11 |
+| S14 | GET `/derechos/solicitudes` | Solicitudes de derechos de los titulares | funcionario con segundo factor | Auditor/DPD | Paginación | Lectura | N03 |
+| S15 | POST `/derechos/solicitudes/{id}/atender` | Atender una solicitud (acceso, rectificación, oposición o eliminación) | funcionario con segundo factor | Auditor/DPD | Eliminación: anonimiza y ordena a los encargados (3 y 5 días) | Idempotente; token CSRF | N03, T10, T11 |
+| S16 | GET `/exportaciones` | Listar y solicitar exportaciones puntuales | funcionario con segundo factor | Auditor/DPD y TI | Sin exportación masiva | Lectura | R06, T04 |
+| S17 | POST `/exportaciones` | Solicitar una exportación puntual de auditoría | funcionario con segundo factor | Auditor/DPD | Motivo escrito; rango de hasta 31 días; tope de filas | Token CSRF | R06, T04 |
+| S18 | POST `/exportaciones/{id}/aprobar` | Aprobar la exportación (segunda persona) | funcionario con segundo factor | Auditor/DPD o TI, distinto de quien la pidió | La base impide la autoaprobación | Idempotente; token CSRF | R06, T04 |
+| S19 | GET `/exportaciones/{id}/descargar` | Descargar la exportación aprobada (una sola vez) | funcionario con segundo factor | Solo quien la solicitó | Vigencia de 24 h | Lectura; entrega única auditada | R06, T04 |
+| S20 | GET `/soporte/cuentas/{cedula}` | Datos técnicos de una cuenta (enmascarados) | funcionario con segundo factor | Soporte | Máximo 30 consultas por hora y por funcionario | Lectura; auditada | R06, R08, T04 |
+| S21 | POST `/soporte/cuentas/{cedula}/recuperacion` | Iniciar la recuperación con verificación presencial | funcionario con segundo factor | Soporte | El enlace va solo al contacto registrado | Token CSRF | R05, R20 |
+| S22 | GET `/oferta/franjas` | Franjas de la unidad | funcionario con segundo factor | Administración de oferta de SU unidad | Paginación | Lectura | R06 |
+| S23 | POST `/oferta/franjas` | Crear una jornada de franjas | funcionario con segundo factor | Administración de oferta de SU unidad | Duración de 10 a 120 min; solo dentro de la ventana de reserva | Token CSRF | R06 |
+| S24 | POST `/oferta/franjas/{id}/cerrar` | Cerrar una franja (la institución cancela el turno con aviso) | funcionario con segundo factor | Administración de oferta de SU unidad | - | Idempotente; token CSRF | R06, R14 |
+| S25 | POST `/interno/afiliados/{cedula}/emergencia` | Acceso excepcional (de emergencia) a datos completos | funcionario con segundo factor | Recepción o profesional de una unidad | Motivo obligatorio; 5 por hora; aviso inmediato; revisión posterior | Token CSRF | R06, T04 |
+| S26 | GET / POST `/mis-datos/contacto` | Cambiar correo o teléfono (rectificación) | sesion con segundo factor reciente | Propio | Código al contacto nuevo; aviso al anterior; espera de 24 h para operaciones sensibles | Token CSRF | R05, R20, N03 |
+| S27 | GET / POST `/mis-datos/preferencias` | Consentimiento de SMS (y su retiro) | sesion | Propio | - | Token CSRF | N03 |
 
 ## Notas de diseño
 

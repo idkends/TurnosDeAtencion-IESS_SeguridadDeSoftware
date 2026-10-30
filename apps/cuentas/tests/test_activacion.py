@@ -29,7 +29,8 @@ def test_CA04_no_hay_forma_de_indicar_otro_contacto(afiliar, correo_enviado):
     """La firma del servicio ni siquiera acepta un correo: el pre-secuestro de cuenta no es expresable."""
     import inspect
 
-    assert list(inspect.signature(servicios.solicitar_activacion).parameters) == ["cedula_cruda"]
+    parametros = list(inspect.signature(servicios.solicitar_activacion).parameters)
+    assert parametros == ["cedula_cruda", "desafio"] and not any("correo" in p or "contacto" in p or "telefono" in p for p in parametros)
     datos = afiliar(correo="titular@correo.iess-prueba.example")
     servicios.solicitar_activacion(datos.cedula)
     assert [m.destino for m in correo_enviado] == ["titular@correo.iess-prueba.example"]

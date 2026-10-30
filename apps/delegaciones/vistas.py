@@ -5,7 +5,7 @@ from django.shortcuts import redirect, render
 from django.urls import reverse
 from django.utils.http import urlencode
 
-from apps.cuentas.servicios import LimiteExcedido, ReautenticacionRequerida
+from apps.cuentas.servicios import LimiteExcedido, OperacionDiferida, ReautenticacionRequerida
 from config.endpoints import endpoint
 
 from . import esquemas, servicios
@@ -39,6 +39,8 @@ def crear(request):
             persona = servicios.previsualizar_representante(request, d["cedula"])
             return render(request, "delegaciones/confirmar.html", {"persona": persona, "cedula": d["cedula"]})
         servicios.crear_delegacion(request, d["cedula"])
+    except OperacionDiferida as error:
+        return render(request, "cuentas/operacion_diferida.html", {"hasta": error.hasta}, status=423)
     except ReautenticacionRequerida as error:
         destino = "cuentas:mfa_configurar" if error.configurar_mfa else "cuentas:reautenticar"
         return redirect(f"{reverse(destino)}?{urlencode({'next': reverse('delegaciones:lista')})}")

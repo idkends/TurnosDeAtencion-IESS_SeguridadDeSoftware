@@ -15,4 +15,6 @@ urlpatterns = [
     path("", include("apps.turnos.urls")),
     path("", include("apps.delegaciones.urls")),
     path("", include("apps.notificaciones.urls")),
+    path("", include("apps.deteccion.urls")),
+    path("", include("apps.derechos.urls")),
 ]

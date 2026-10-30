@@ -36,6 +36,8 @@ __all__ = [
     "previsualizar_representante",
     "representados_de",
     "revocar_delegacion",
+    "revocar_todas_de",
+    "purgar_vencidas",
 ]
 
 
@@ -228,3 +230,21 @@ def notificar_accion_representante(titular_id, representante_id) -> None:
     titular = cuentas.persona_por_id(titular_id)
     if titular is not None and titular_id != representante_id:
         _avisar(titular.cedula, "accion_representante", titular.id)
+
+
+def revocar_todas_de(persona_id) -> int:
+    """Eliminación de una cuenta: se revocan todas las delegaciones en las que participa."""
+    ahora = reloj.ahora()
+    n = Delegacion.objects.filter(estado=EstadoDelegacion.ACTIVA).filter(titular_id=persona_id).update(estado=EstadoDelegacion.REVOCADA, revocada_en=ahora)
+    n += Delegacion.objects.filter(estado=EstadoDelegacion.ACTIVA).filter(representante_id=persona_id).update(estado=EstadoDelegacion.REVOCADA, revocada_en=ahora)
+    return n
+
+
+def purgar_vencidas(meses: int) -> int:
+    """Relaciones de representación: vigencia más 12 meses tras posibles controversias; luego se eliminan (sección 2.2)."""
+    from datetime import timedelta
+
+    corte = reloj.ahora() - timedelta(days=30 * meses)
+    from django.db.models import Q
+
+    return Delegacion.objects.filter(Q(vence__lt=corte) | Q(revocada_en__lt=corte)).delete()[0]

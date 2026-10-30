@@ -8,7 +8,7 @@ class Command(BaseCommand):
     help = "Verifica la integridad de la cadena de auditoría (HMAC encadenado)."
 
     def handle(self, *args, **opciones):
-        resultado = servicios.verificar_cadena()
+        resultado = servicios.verificar_y_registrar()
         if not resultado.correcta:
             raise CommandError(
                 f"CADENA ALTERADA en el evento {resultado.primera_falla}: {resultado.motivo} "

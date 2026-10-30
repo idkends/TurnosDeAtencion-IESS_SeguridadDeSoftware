@@ -97,6 +97,34 @@ PLANTILLAS: dict[str, tuple[str, str]] = {
         "Delegación revocada",
         "Se revocó una delegación de agenda de su cuenta.",
     ),
+    "alerta_seguridad": (
+        "Actividad inusual en su cuenta",
+        "Detectamos intentos de acceso inusuales en su cuenta y la protegimos. Para volver a entrar, restablezca su clave desde el portal.",
+    ),
+    "alerta_seguridad_interna": (
+        "Alerta de seguridad pendiente",
+        "Hay una alerta de seguridad de severidad alta o crítica pendiente en el panel de alertas.",
+    ),
+    "contacto_cambiado": (
+        "Se cambió el contacto de su cuenta",
+        "Se cambió el contacto registrado en su cuenta del portal de turnos. Si no fue usted, comuníquese con su unidad de atención.",
+    ),
+    "recordatorio": (
+        "Recordatorio de cita",
+        "Tiene una cita el {fecha}. Ingrese al portal para ver el detalle o cancelar: {enlace}",
+    ),
+    "emergencia_acceso": (
+        "Acceso excepcional registrado",
+        "Se registró un acceso excepcional (de emergencia) a datos de un afiliado. Corresponde su revisión posterior.",
+    ),
+    "exportacion_pendiente": (
+        "Exportación pendiente de aprobación",
+        "Hay una solicitud de exportación puntual que requiere su aprobación en el portal.",
+    ),
+    "encargado_eliminacion": (
+        "Orden de eliminación de datos",
+        "Se solicita eliminar los datos asociados a una cuenta dentro del plazo contractual.",
+    ),
     "derechos_recibida": (
         "Solicitud recibida",
         "Recibimos su solicitud sobre sus datos. Le responderemos antes del {fecha}.",
@@ -161,14 +189,33 @@ def crear_enlace(*, destinatario_id, turno_id) -> str:
 def consumir_enlace(token: str):
     """Invalida el token y devuelve el id del turno al que apunta, o None si no existe, venció o ya se usó.
 
-    Una sola actualización condicional: dos usos simultáneos no pueden ganar ambos.
+    Una sola transacción con bloqueo de fila: dos usos simultáneos no pueden ganar ambos. Todo intento (bueno o malo)
+    queda auditado con la referencia del token, de modo que la detección (D17) vea el mismo token desde orígenes distintos.
     """
     resumen = hashlib.sha256((token or "").encode()).hexdigest()
+    turno_id = None
     with transaction.atomic():
         fila = TokenEnlace.objects.select_for_update().filter(token_hash=resumen, usado=False).first()
-        if fila is None or reloj.ahora() >= fila.expira:
-            return None
-        fila.usado = True
-        fila.save(update_fields=["usado"])
-        auditoria.registrar(accion=auditoria.Acciones.ENLACE_USADO, actor_id=fila.destinatario_id, recurso_tipo="turno", recurso_id=fila.turno_id)
-        return fila.turno_id
+        if fila is not None and reloj.ahora() < fila.expira:
+            fila.usado = True
+            fila.save(update_fields=["usado"])
+            turno_id = fila.turno_id
+            destinatario = fila.destinatario_id
+    if turno_id is None:
+        auditoria.registrar(accion=auditoria.Acciones.ENLACE_RECHAZADO, resultado=auditoria.DENEGADO, recurso_tipo="enlace", detalle={"token_ref": resumen[:12]})
+        return None
+    auditoria.registrar(accion=auditoria.Acciones.ENLACE_USADO, actor_id=destinatario, recurso_tipo="turno", recurso_id=turno_id, detalle={"token_ref": resumen[:12]})
+    return turno_id
+
+
+def invalidar_enlace_por_ref(token_ref: str) -> int:
+    """Respuesta a D17: invalida un enlace presentado desde orígenes distintos."""
+    return TokenEnlace.objects.filter(token_hash__startswith=token_ref, usado=False).update(usado=True)
+
+
+def purgar_antiguas(meses: int) -> int:
+    """Registro de notificaciones: 6 meses (prueba de aviso); después se elimina. También los enlaces vencidos."""
+    corte = reloj.ahora() - timedelta(days=30 * meses)
+    n = Notificacion.objects.filter(creada__lt=corte).delete()[0]
+    n += TokenEnlace.objects.filter(expira__lt=reloj.ahora() - timedelta(days=7)).delete()[0]
+    return n

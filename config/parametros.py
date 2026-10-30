@@ -127,6 +127,52 @@ class Parametros:
 
     # --- Notificaciones ---
     notificaciones_conservacion_meses: int = 6
+    recordatorio_horas: tuple = (72, 24)  # recordatorios neutrales antes de la cita
+    consentimiento_cambio_contacto_horas_espera: int = 24  # espera para operaciones sensibles tras cambiar el contacto (Anexo F)
+    cambio_contacto_minutos: int = 15
+
+    # --- Detección y respuesta (Anexo I): umbrales parametrizables ---
+    d01_fallos_por_ip: int = 50
+    d01_ventana_minutos: int = 10
+    d02_cuentas_distintas: int = 200
+    d02_ventana_minutos: int = 10
+    d03_fallos_por_cuenta: int = 10
+    d03_ips_distintas: int = 5
+    d03_ventana_minutos: int = 10
+    d04_cedulas_distintas: int = 30
+    d04_ventana_minutos: int = 10
+    d06_intentos_por_hora_cuenta: int = 10
+    d06_cuentas_distintas_por_ip: int = 5
+    d07_respuestas_por_usuario: int = 20
+    d07_ventana_minutos: int = 5
+    d08_fichas_por_hora: int = 100
+    horario_laboral_inicio: int = 7
+    horario_laboral_fin: int = 19
+    d12_porcentaje_5xx: float = 2.0
+    d12_muestra_minima: int = 50
+    d13_p95_segundos: float = 2.0
+    d13_ventana_minutos: int = 5
+    d14_fallos_terceros: int = 5
+    d14_ventana_segundos: int = 30
+    d15_dias_sin_prueba_restauracion: int = 90
+    d16_plazo_horas: int = 72
+    bloqueo_origen_minutos: int = 30
+    desafio_minutos: int = 30
+    sala_espera_minutos: int = 10
+    sala_espera_admision_por_segundo: int = 20
+    metricas_ventana_segundos: int = 300
+
+    # --- Acceso excepcional, exportaciones y retención de datos (sección 2.2) ---
+    emergencia_motivo_minimo: int = 20
+    exportacion_filas_maximas: int = 1000
+    exportacion_vigencia_horas: int = 24
+    retencion_cuenta_inactiva_meses: int = 24
+    retencion_turnos_meses: int = 12
+    retencion_restricciones_meses: int = 12
+    retencion_delegaciones_meses: int = 12
+    retencion_codigos_dias: int = 7
+    encargado_plazo_notificacion_dias: int = 3
+    encargado_plazo_eliminacion_dias: int = 5
 
     def __post_init__(self):
         for campo in fields(self):

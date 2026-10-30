@@ -17,7 +17,7 @@ from django.db import connection, transaction
 from config import contexto, reloj
 from config.parametros import P
 
-from .modelos import EventoAuditoria
+from .modelos import CorreccionAuditoria, EventoAuditoria
 
 HASH_GENESIS = "0" * 64
 _BLOQUEO_CADENA = 7_246_001  # clave del bloqueo consultivo que serializa la escritura de la cadena
@@ -79,6 +79,34 @@ class Acciones:
     SOLICITUD_DERECHOS = "SOLICITUD_DERECHOS"
     ENLACE_USADO = "ENLACE_USADO"
     ACCESO_AUDITORIA = "ACCESO_AUDITORIA"
+    ACCESO_EMERGENCIA = "ACCESO_EMERGENCIA"
+    EXPORTACION_SOLICITADA = "EXPORTACION_SOLICITADA"
+    EXPORTACION_APROBADA = "EXPORTACION_APROBADA"
+    EXPORTACION_ENTREGADA = "EXPORTACION_ENTREGADA"
+    CORRECCION_PROPUESTA = "CORRECCION_PROPUESTA"
+    CORRECCION_AUDITORIA = "CORRECCION_AUDITORIA"
+    VERIFICACION_AUDITORIA_FALLIDA = "VERIFICACION_AUDITORIA_FALLIDA"
+    RESPALDO_REALIZADO = "RESPALDO_REALIZADO"
+    RESPALDO_FALLIDO = "RESPALDO_FALLIDO"
+    RESTAURACION_PROBADA = "RESTAURACION_PROBADA"
+    VULNERABILIDAD_DETECTADA = "VULNERABILIDAD_DETECTADA"
+    CAMBIO_PRIVILEGIOS = "CAMBIO_PRIVILEGIOS"
+    FICHA_CONSULTADA = "FICHA_CONSULTADA"
+    ENLACE_RECHAZADO = "ENLACE_RECHAZADO"
+    ALERTA_GENERADA = "ALERTA_GENERADA"
+    ALERTA_RECONOCIDA = "ALERTA_RECONOCIDA"
+    ACCION_AUTOMATICA = "ACCION_AUTOMATICA"
+    VENCIMIENTO_EJECUTADO = "VENCIMIENTO_EJECUTADO"
+    DERECHOS_ATENDIDO = "DERECHOS_ATENDIDO"
+    DATOS_EXPORTADOS = "DATOS_EXPORTADOS"
+    CUENTA_ELIMINADA = "CUENTA_ELIMINADA"
+    CONTACTO_CAMBIADO = "CONTACTO_CAMBIADO"
+    CONSENTIMIENTO_SMS = "CONSENTIMIENTO_SMS"
+    SOPORTE_INICIA_RECUPERACION = "SOPORTE_INICIA_RECUPERACION"
+    OFERTA_MODIFICADA = "OFERTA_MODIFICADA"
+    RECORDATORIO_ENVIADO = "RECORDATORIO_ENVIADO"
+    CLAVE_ROTADA = "CLAVE_ROTADA"
+    ORDEN_ENCARGADO = "ORDEN_ENCARGADO"
 
 
 _CLAVES_SENSIBLES = re.compile(
@@ -252,3 +280,87 @@ def listar_eventos(*, accion=None, resultado=None, actor_id=None, desde=None, ha
         )[inicio : inicio + tamano]
     )
     return PaginaEventos(filas, pagina, tamano, total)
+
+
+# --- Etapa 3: ventanas de consulta para la detección, verificación registrada y correcciones ---------------------------------------
+
+
+def consultar_ventana(acciones, desde, *, hasta=None, resultado=None, limite: int = 50_000) -> list[dict]:
+    """Eventos de las `acciones` indicadas desde `desde`, más antiguos primero. Es la ÚNICA fuente de la detección (D01-D18)."""
+    consulta = EventoAuditoria.objects.filter(accion__in=list(acciones), ocurrido_en__gte=desde)
+    if hasta is not None:
+        consulta = consulta.filter(ocurrido_en__lt=hasta)
+    if resultado:
+        consulta = consulta.filter(resultado=resultado)
+    return list(
+        consulta.order_by("secuencia").values("secuencia", "ocurrido_en", "actor_id", "actor_rol", "accion", "resultado", "ip", "recurso_tipo", "recurso_id", "detalle")[:limite]
+    )
+
+
+def verificar_y_registrar() -> ResultadoVerificacion:
+    """Verifica la cadena; si falla, deja un asiento VERIFICACION_AUDITORIA_FALLIDA (alimenta la regla D11)."""
+    resultado = verificar_cadena()
+    if not resultado.correcta:
+        registrar(
+            accion=Acciones.VERIFICACION_AUDITORIA_FALLIDA,
+            resultado=ERROR,
+            recurso_tipo="auditoria",
+            detalle={"primera_falla": resultado.primera_falla, "motivo": resultado.motivo, "revisados": resultado.eventos_revisados},
+        )
+    return resultado
+
+
+class CorreccionInvalida(Exception):
+    pass
+
+
+def proponer_correccion(*, autor_id, autor_rol: str, secuencia: int, motivo: str) -> "CorreccionAuditoria":
+    """Una corrección NO edita nada: propone un asiento nuevo que deberá aprobar un SEGUNDO supervisor."""
+    motivo = (motivo or "").strip()
+    if len(motivo) < 10:
+        raise CorreccionInvalida("El motivo debe explicar la corrección (mínimo 10 caracteres).")
+    if not EventoAuditoria.objects.filter(secuencia=secuencia).exists():
+        raise CorreccionInvalida("El evento a corregir no existe.")
+    with transaction.atomic():
+        if CorreccionAuditoria.objects.filter(secuencia_original=secuencia, estado="PENDIENTE").exists():
+            raise CorreccionInvalida("Ya hay una corrección pendiente para ese evento.")
+        c = CorreccionAuditoria.objects.create(secuencia_original=secuencia, motivo=motivo[:300], autor_id=autor_id, creada=reloj.ahora())
+        registrar(accion=Acciones.CORRECCION_PROPUESTA, actor_id=autor_id, actor_rol=autor_rol, recurso_tipo="auditoria", recurso_id=secuencia,
+                  detalle={"correccion_id": str(c.id)})
+    return c
+
+
+def aprobar_correccion(*, aprobador_id, aprobador_rol: str, correccion_id) -> EventoAuditoria:
+    """Aprueba (segundo supervisor, distinto del autor) y deja el asiento de corrección con motivo, autor y aprobador."""
+    with transaction.atomic():
+        c = CorreccionAuditoria.objects.select_for_update().filter(pk=correccion_id).first()
+        if c is None or c.estado != "PENDIENTE":
+            raise CorreccionInvalida("La corrección no existe o ya fue resuelta.")
+        if str(aprobador_id) == str(c.autor_id):
+            raise CorreccionInvalida("La aprobación debe hacerla un segundo supervisor, distinto de quien propuso la corrección.")
+        c.estado, c.aprobador_id, c.resuelta_en = "APROBADA", aprobador_id, reloj.ahora()
+        c.save(update_fields=["estado", "aprobador_id", "resuelta_en"])
+        return registrar(
+            accion=Acciones.CORRECCION_AUDITORIA, actor_id=aprobador_id, actor_rol=aprobador_rol, recurso_tipo="auditoria", recurso_id=c.secuencia_original,
+            detalle={"correccion_id": str(c.id), "motivo": c.motivo, "autor_id": str(c.autor_id), "aprobador_id": str(aprobador_id)},
+        )
+
+
+def archivar_antiguos(antes_de, ruta) -> int:
+    """Archivo posterior a los 12 meses en línea: escribe los eventos más antiguos en un archivo JSON-lines encadenado.
+
+    NO borra nada (la tabla es de solo adición; el recorte físico es una tarea de operación con particiones): el archivo
+    conserva los hashes, así que sigue siendo verificable fuera de línea.
+    """
+    import json
+    import pathlib
+
+    destino = pathlib.Path(ruta)
+    destino.parent.mkdir(parents=True, exist_ok=True)
+    n = 0
+    with destino.open("w", encoding="utf-8") as f:
+        for e in EventoAuditoria.objects.filter(ocurrido_en__lt=antes_de).order_by("secuencia").iterator(chunk_size=500):
+            f.write(json.dumps({"secuencia": e.secuencia, "ocurrido_en": e.ocurrido_en.isoformat(), "accion": e.accion, "resultado": e.resultado,
+                                "hash_anterior": e.hash_anterior, "hash": e.hash, "version_clave": e.version_clave}, sort_keys=True) + "\n")
+            n += 1
+    return n

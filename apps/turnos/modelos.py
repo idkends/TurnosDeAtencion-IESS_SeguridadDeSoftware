@@ -49,6 +49,7 @@ class Especialidad(models.Model):
 class EstadoFranja(models.TextChoices):
     LIBRE = "LIBRE", "Libre"
     OCUPADA = "OCUPADA", "Ocupada"
+    CERRADA = "CERRADA", "Cerrada por la oferta"  # la administración de oferta retiró el cupo
 
 
 class Franja(models.Model):
@@ -66,7 +67,7 @@ class Franja(models.Model):
         indexes = [models.Index(fields=["especialidad", "establecimiento", "inicio"], name="ix_franja_busqueda")]
         constraints = [
             models.CheckConstraint(condition=Q(fin__gt=F("inicio")), name="ck_franja_rango"),
-            models.CheckConstraint(condition=Q(estado__in=["LIBRE", "OCUPADA"]), name="ck_franja_estado"),
+            models.CheckConstraint(condition=Q(estado__in=["LIBRE", "OCUPADA", "CERRADA"]), name="ck_franja_estado"),
             models.UniqueConstraint(fields=["establecimiento", "especialidad", "inicio"], name="uq_franja_oferta"),
         ]
 
@@ -237,3 +238,17 @@ class Apelacion(models.Model):
             models.UniqueConstraint(fields=["restriccion"], condition=Q(estado="PENDIENTE"), name="uq_apelacion_pendiente"),
             models.CheckConstraint(condition=Q(estado__in=["PENDIENTE", "ACEPTADA", "RECHAZADA"]), name="ck_apelacion_estado"),
         ]
+
+
+class Recordatorio(models.Model):
+    """Registro de recordatorios enviados (72 h y 24 h antes): un solo envío por turno y plazo."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    turno = models.ForeignKey(Turno, on_delete=models.CASCADE, related_name="recordatorios")
+    horas = models.PositiveSmallIntegerField()
+    enviado_en = models.DateTimeField()
+
+    class Meta:
+        db_table = "turnos_recordatorio"
+        default_permissions = ()
+        constraints = [models.UniqueConstraint(fields=["turno", "horas"], name="uq_recordatorio_turno_horas")]

@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block titulo %}Oferta de la unidad{% endblock %}
+{% block contenido %}
+  <h1>Oferta de la unidad</h1>
+  <form method="get" action="{% url 'turnos:oferta' %}" class="tarjeta">
+    <div class="campo"><label for="fecha_oferta">Fecha</label><input id="fecha_oferta" type="date" name="fecha"></div>
+    <button class="boton" type="submit">Ver</button>
+  </form>
+  <div class="tarjeta">
+    <h2>Crear una jornada</h2>
+    <form method="post" action="{% url 'turnos:oferta' %}">{% csrf_token %}
+      <div class="campo"><label for="j_esp">Especialidad</label>
+        <select id="j_esp" name="especialidad">{% for codigo, nombre in catalogos.especialidades %}<option value="{{ codigo }}">{{ nombre }}</option>{% endfor %}</select></div>
+      <div class="campo"><label for="j_fecha">Fecha</label><input id="j_fecha" type="date" name="fecha" required></div>
+      <div class="campo"><label for="j_desde">Desde (HH:MM)</label><input id="j_desde" name="desde" value="08:00" required></div>
+      <div class="campo"><label for="j_hasta">Hasta (HH:MM)</label><input id="j_hasta" name="hasta" value="11:00" required></div>
+      <div class="campo"><label for="j_dur">Duración de cada franja (minutos)</label><input id="j_dur" type="number" name="duracion" value="30" min="10" max="120" required></div>
+      <div class="campo"><label><input type="checkbox" name="ultima_prioritaria" value="on"> La última franja es de atención prioritaria</label></div>
+      <button class="boton" type="submit">Crear jornada</button>
+    </form>
+  </div>
+  <div class="tarjeta">
+    <table>
+      <caption class="ayuda">{{ total }} franja(s)</caption>
+      <thead><tr><th scope="col">Hora</th><th scope="col">Especialidad</th><th scope="col">Estado</th><th scope="col">Prioritaria</th><th scope="col"><span class="ayuda">Acción</span></th></tr></thead>
+      <tbody>
+      {% for f in franjas %}
+        <tr><td>{{ f.inicio|date:"d/m H:i" }}</td><td>{{ f.especialidad }}</td><td>{{ f.estado_texto }}</td><td>{% if f.cupo_prioritario %}Sí{% else %}No{% endif %}</td>
+          <td>{% if f.puede_cerrar %}<form method="post" action="{% url 'turnos:cerrar_oferta' f.id %}">{% csrf_token %}<button class="boton secundario" type="submit">Cerrar</button></form>{% endif %}</td></tr>
+      {% empty %}<tr><td colspan="5">No hay franjas para esta fecha.</td></tr>{% endfor %}
+      </tbody>
+    </table>
+  </div>
+{% endblock %}

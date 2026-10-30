@@ -66,3 +66,24 @@ class AgendaForm(_Paginado):
 
 class ContactoForm(FormularioEstricto):
     justificacion = forms.CharField(required=False, max_length=200, strip=True)
+
+
+class FiltroOfertaForm(_Paginado):
+    fecha = forms.DateField(required=False, input_formats=["%Y-%m-%d"])
+
+
+class JornadaForm(FormularioEstricto):
+    especialidad = forms.RegexField(regex=r"^[A-Z0-9]{2,10}$")
+    fecha = forms.DateField(input_formats=["%Y-%m-%d"])
+    desde = forms.TimeField(input_formats=["%H:%M"])
+    hasta = forms.TimeField(input_formats=["%H:%M"])
+    duracion = forms.IntegerField(min_value=10, max_value=120)
+    ultima_prioritaria = forms.BooleanField(required=False)
+
+
+class CerrarFranjaForm(FormularioEstricto):
+    """Sin campos: el id va en la ruta."""
+
+
+class EmergenciaForm(FormularioEstricto):
+    motivo = forms.CharField(min_length=1, max_length=300, strip=True, widget=forms.Textarea(attrs={"rows": 3, "maxlength": 300}))

@@ -6,6 +6,7 @@
     <form method="post" novalidate>{% csrf_token %}
       <input type="hidden" name="next" value="{{ next }}">
       {% include "componentes/campos.html" %}
+      {% include "componentes/desafio.html" %}
       <div class="acciones">
         <button class="boton" type="submit">Ingresar</button>
         <a href="{% url 'cuentas:recuperar' %}">Olvidé mi clave</a>

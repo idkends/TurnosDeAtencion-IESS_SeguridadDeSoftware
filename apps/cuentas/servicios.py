@@ -12,6 +12,7 @@ import hashlib
 import hmac
 import secrets
 import time
+import uuid
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
@@ -27,6 +28,7 @@ from django.contrib.sessions.models import Session
 from django.core.cache import caches
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
+from django.db.models import Q
 from django.utils import timezone as zona
 from django.utils.safestring import mark_safe
 
@@ -34,7 +36,8 @@ from apps.auditoria import servicios as auditoria
 from apps.auditoria.servicios import Acciones
 from apps.integraciones import servicios as integraciones
 from apps.notificaciones import servicios as notificaciones
-from config import contexto, limites, reloj
+from config import bloqueos, contexto, limites, reloj
+from config import desafio as retos
 from config.cedula import es_valida
 from config.parametros import P
 
@@ -84,6 +87,10 @@ class ReautenticacionRequerida(Exception):
 
 class AccesoDenegado(Exception):
     pass
+
+
+class DesafioRequerido(Exception):
+    """La detección activó el desafío adaptativo y la respuesta falta o es incorrecta (CA-12)."""
 
 
 class NoEncontrado(Exception):
@@ -153,6 +160,24 @@ def _hash_para_igualar() -> str:
     if _hash_ficticio is None:
         _hash_ficticio = make_password("clave-ficticia-" + secrets.token_hex(8))
     return _hash_ficticio
+
+
+def desafio_requerido() -> bool:
+    return bloqueos.desafio_activo()
+
+
+def nuevo_desafio() -> dict:
+    token, pregunta = retos.crear()
+    return {"token": token, "pregunta": pregunta}
+
+
+def _exigir_desafio(desafio) -> None:
+    """Solo ante comportamiento sospechoso (D02): sin desafío activo no se pide nada y no cambia la experiencia normal."""
+    if not bloqueos.desafio_activo():
+        return
+    if not desafio or not retos.verificar(*desafio):
+        auditoria.registrar(accion=Acciones.LIMITE_EXCEDIDO, resultado=auditoria.DENEGADO, detalle={"ambito": "desafio"})
+        raise DesafioRequerido()
 
 
 def _ip() -> str:
@@ -236,10 +261,11 @@ def _limpiar_fallos(cedula: str) -> None:
 # --- Activación de cuenta (Anexo F) ----------------------------------------------------------------------------------
 
 
-def solicitar_activacion(cedula_cruda: str) -> None:
+def solicitar_activacion(cedula_cruda: str, desafio=None) -> None:
     """Envía un código al contacto REGISTRADO en afiliación. La respuesta es la misma exista o no la cédula (CA-04/05)."""
     cedula = _normalizar_cedula(cedula_cruda)
     _consumir_limite("activacion-ip", _ip(), P.activacion_solicitudes_por_hora_ip, 3600)
+    _exigir_desafio(desafio)
     if cedula:
         _consumir_limite("activacion-cedula", cedula, P.activacion_solicitudes_por_hora_cedula, 3600)
     with _tiempo_minimo():
@@ -294,7 +320,7 @@ def solicitar_activacion(cedula_cruda: str) -> None:
                 creado=ahora,
                 expira=ahora + timedelta(minutes=P.activacion_minutos),
             )
-            auditoria.registrar(accion=Acciones.ACTIVACION_SOLICITADA, actor=usuario, recurso_tipo="usuario", recurso_id=usuario.id)
+            auditoria.registrar(accion=Acciones.ACTIVACION_SOLICITADA, actor=usuario, recurso_tipo="usuario", recurso_id=usuario.id, detalle={"cedula_ref": _ref_cedula(cedula)})
             notificaciones.enviar(
                 plantilla="activacion",
                 canal="CORREO",
@@ -361,9 +387,10 @@ def _verificar_codigo_activacion(usuario: Usuario, codigo: str) -> str:
 # --- Inicio de sesión ------------------------------------------------------------------------------------------------------
 
 
-def autenticar(request, cedula_cruda: str, clave: str) -> ResultadoLogin:
+def autenticar(request, cedula_cruda: str, clave: str, desafio=None) -> ResultadoLogin:
     """Verifica cédula y clave. Mismo mensaje y tiempo para cédula inexistente, clave incorrecta o cuenta bloqueada."""
     _consumir_limite("login-ip", _ip(), P.login_intentos_por_minuto_ip, 60)
+    _exigir_desafio(desafio)
     cedula = _normalizar_cedula(cedula_cruda)
     with _tiempo_minimo():
         usuario = Usuario.objects.filter(cedula=cedula).first() if es_valida(cedula) else None
@@ -730,6 +757,8 @@ def revocar_sesion(request, sesion_id) -> bool:
 def exigir_operacion_sensible(request) -> None:
     """Para operaciones sensibles: sesión con actividad reciente (1 h) y segundo factor reciente."""
     usuario = request.user
+    if usuario.contacto_cambiado_en and reloj.ahora() < usuario.contacto_cambiado_en + timedelta(hours=P.consentimiento_cambio_contacto_horas_espera):
+        raise OperacionDiferida(usuario.contacto_cambiado_en + timedelta(hours=P.consentimiento_cambio_contacto_horas_espera))
     if not usuario.totp_confirmado:
         raise ReautenticacionRequerida("MFA_NO_CONFIGURADO", configurar_mfa=True)
     motivo = politicas.sesion_apta_para_operacion_sensible(
@@ -788,10 +817,11 @@ def _hash_token(token: str) -> str:
     return hashlib.sha256(token.encode()).hexdigest()
 
 
-def solicitar_recuperacion(cedula_cruda: str) -> None:
+def solicitar_recuperacion(cedula_cruda: str, desafio=None) -> None:
     """Envía el enlace al contacto REGISTRADO. Mensaje y tiempo idénticos exista o no la cédula (CWE-204)."""
     cedula = _normalizar_cedula(cedula_cruda)
     _consumir_limite("recuperacion-ip", _ip(), P.recuperacion_solicitudes_por_hora_ip, 3600)
+    _exigir_desafio(desafio)
     if cedula:
         _consumir_limite("recuperacion-cedula", cedula, P.recuperacion_solicitudes_por_hora_cedula, 3600)
     with _tiempo_minimo():
@@ -802,26 +832,25 @@ def solicitar_recuperacion(cedula_cruda: str) -> None:
                 accion=Acciones.RECUPERACION_SOLICITADA, resultado=auditoria.DENEGADO, detalle={"cedula_ref": _ref_cedula(cedula)}
             )
             return
-        token = secrets.token_urlsafe(P.recuperacion_bits_token // 8)  # 128 bits
-        with transaction.atomic():
-            TokenRecuperacion.objects.filter(usuario=usuario, usado=False).update(usado=True, usado_en=reloj.ahora())
-            ahora = reloj.ahora()
-            TokenRecuperacion.objects.create(
-                usuario=usuario,
-                token_hash=_hash_token(token),
-                creado=ahora,
-                expira=ahora + timedelta(minutes=P.recuperacion_minutos),
-            )
-            auditoria.registrar(accion=Acciones.RECUPERACION_SOLICITADA, actor=usuario, recurso_tipo="usuario", recurso_id=usuario.id)
-        # El enlace usa el dominio FIJO de la configuración, jamás la cabecera Host (CA-16).
-        enlace = f"{settings.URL_BASE}/cuenta/restablecer/{token}/"
-        notificaciones.enviar(
-            plantilla="recuperacion",
-            canal="CORREO",
-            destino=usuario.correo,
-            parametros={"enlace": enlace, "minutos": P.recuperacion_minutos},
-            destinatario_id=usuario.id,
+        _emitir_enlace_recuperacion(usuario)
+
+
+def _emitir_enlace_recuperacion(usuario: Usuario) -> None:
+    """Crea el token de 128 bits (solo su hash queda guardado) y lo envía al contacto REGISTRADO de la cuenta."""
+    token = secrets.token_urlsafe(P.recuperacion_bits_token // 8)
+    with transaction.atomic():
+        TokenRecuperacion.objects.filter(usuario=usuario, usado=False).update(usado=True, usado_en=reloj.ahora())
+        ahora = reloj.ahora()
+        TokenRecuperacion.objects.create(
+            usuario=usuario, token_hash=_hash_token(token), creado=ahora, expira=ahora + timedelta(minutes=P.recuperacion_minutos)
         )
+        auditoria.registrar(accion=Acciones.RECUPERACION_SOLICITADA, actor=usuario, recurso_tipo="usuario", recurso_id=usuario.id)
+    # El enlace usa el dominio FIJO de la configuración, jamás la cabecera Host (CA-16).
+    enlace = f"{settings.URL_BASE}/cuenta/restablecer/{token}/"
+    notificaciones.enviar(
+        plantilla="recuperacion", canal="CORREO", destino=usuario.correo,
+        parametros={"enlace": enlace, "minutos": P.recuperacion_minutos}, destinatario_id=usuario.id,
+    )
 
 
 def token_recuperacion_vigente(token: str) -> bool:
@@ -861,7 +890,8 @@ def restablecer_clave(token: str, clave_nueva: str, codigo_mfa: str = "") -> Non
                 usuario.save(update_fields=["password", "clave_cambiada_en"])
                 _revocar_todas(usuario, "RECUPERACION_DE_CLAVE")  # al terminar se cierran todas las sesiones
                 auditoria.registrar(
-                    accion=Acciones.RECUPERACION_COMPLETADA, actor=usuario, recurso_tipo="usuario", recurso_id=usuario.id
+                    accion=Acciones.RECUPERACION_COMPLETADA, actor=usuario, recurso_tipo="usuario", recurso_id=usuario.id,
+                    detalle={"token_ref": _hash_token(token)[:12]},
                 )
         except (TokenInvalido, CodigoInvalido, ClaveRechazada) as error:
             rechazo = error
@@ -873,7 +903,7 @@ def restablecer_clave(token: str, clave_nueva: str, codigo_mfa: str = "") -> Non
             accion=Acciones.RECUPERACION_FALLIDA,
             actor=usuario,
             resultado=auditoria.DENEGADO,
-            detalle={"motivo": type(rechazo).__name__},
+            detalle={"motivo": type(rechazo).__name__, "token_ref": _hash_token(token or "")[:12]},
         )
         raise rechazo
     notificaciones.enviar(plantilla="clave_cambiada", canal="CORREO", destino=usuario.correo, destinatario_id=usuario.id)
@@ -911,6 +941,8 @@ def aprovisionar_cuenta(*, cedula: str, rol: str, nombres: str, apellidos: str, 
         usuario.set_password(clave)
         usuario.save()
         auditoria.registrar(accion=Acciones.SIEMBRA, recurso_tipo="usuario", recurso_id=usuario.id, detalle={"rol": rol, "alta": "aprovisionada"})
+        if rol not in (Rol.AFILIADO.value, Rol.REPRESENTANTE.value):  # D18: alta de un funcionario
+            auditoria.registrar(accion=Acciones.CAMBIO_PRIVILEGIOS, recurso_tipo="usuario", recurso_id=usuario.id, detalle={"rol_nuevo": rol, "cambio": "alta"})
     return usuario, True
 
 
@@ -1088,3 +1120,324 @@ def cerrar_sesiones(request, alcance: str = "actual", sesion_id=None) -> bool:
         return revocar_sesion(request, sesion_id)
     cerrar_sesion(request)
     return True
+
+
+# --- Etapa 3: acciones de respuesta, soporte, contacto, consentimientos y rotación de claves ----------------------------------------------
+
+
+def _usuario_por_ref(ref: str) -> Usuario | None:
+    """Busca la cuenta cuya cédula produce esa referencia (las auditorías de intentos solo guardan la referencia)."""
+    for u in Usuario.objects.filter(estado=EstadoCuenta.ACTIVA).only("id", "cedula"):
+        if hmac.compare_digest(_ref_cedula(u.cedula), ref):
+            return u
+    return None
+
+
+def exigir_restablecer_clave_por_ref(cedula_ref: str) -> bool:
+    """Respuesta a D03: cuenta atacada desde muchos orígenes. Invalida la clave y las sesiones y avisa al titular (neutral).
+
+    La persona recupera el acceso por el flujo normal de recuperación (contacto registrado); nadie más ve ni fija la clave.
+    """
+    usuario = _usuario_por_ref(cedula_ref)
+    if usuario is None:
+        return False
+    with transaction.atomic():
+        usuario.set_unusable_password()
+        usuario.save(update_fields=["password"])
+        _revocar_todas(usuario, "ACTIVIDAD_SOSPECHOSA")
+        auditoria.registrar(accion=Acciones.ACCION_AUTOMATICA, actor=usuario, recurso_tipo="usuario", recurso_id=usuario.id, detalle={"accion": "clave_invalidada"})
+    notificaciones.enviar(plantilla="alerta_seguridad", canal="CORREO", destino=usuario.correo, destinatario_id=usuario.id)
+    return True
+
+
+def invalidar_token_recuperacion_por_ref(token_ref: str) -> int:
+    """Respuesta a D17: el mismo token presentado desde orígenes distintos se invalida."""
+    return TokenRecuperacion.objects.filter(token_hash__startswith=token_ref, usado=False).update(usado=True, usado_en=reloj.ahora())
+
+
+def contactos_de_responsables() -> list[str]:
+    """Correos de quienes reciben los avisos de seguridad inmediatos (auditores/DPD y administración de TI)."""
+    return [u.correo for u in Usuario.objects.filter(rol__in=[Rol.AUDITOR_DPD.value, Rol.ADMIN_TI.value], estado=EstadoCuenta.ACTIVA).exclude(correo="")]
+
+
+# --- Soporte (datos técnicos enmascarados; nunca restablece claves por sí mismo) ---------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class FichaTecnica:
+    persona_id: object
+    cedula_enmascarada: str
+    correo_enmascarado: str
+    telefono_enmascarado: str
+    estado: str
+    rol: str
+    segundo_factor: bool
+    sesiones_activas: int
+    ultimo_ingreso: object
+    bloqueada: bool
+
+
+def ficha_tecnica(soporte, cedula: str) -> FichaTecnica:
+    """Datos técnicos y de contacto ENMASCARADOS para diagnosticar problemas. Sin clave, sin secretos, sin datos clínicos."""
+    if not politicas.puede_ver_ficha_tecnica(soporte):
+        auditoria.registrar(accion=Acciones.ACCESO_DENEGADO, actor=soporte, resultado=auditoria.DENEGADO, recurso_tipo="cuenta")
+        raise AccesoDenegado()
+    limitar_por_cuenta("ficha-tecnica", soporte.id, P.consultas_contacto_por_hora_funcionario, 3600)
+    u = Usuario.objects.filter(cedula=cedula).first() if es_valida(cedula or "") else None
+    if u is None:
+        raise NoEncontrado()
+    auditoria.registrar(accion=Acciones.CONSULTA_CONTACTO, actor=soporte, recurso_tipo="cuenta", recurso_id=u.id, detalle={"ficha": "tecnica", "completo": False})
+    return FichaTecnica(
+        u.id, politicas.enmascarar_cedula(u.cedula), politicas.enmascarar_correo(u.correo), politicas.enmascarar_telefono(u.telefono), u.estado, u.rol,
+        u.totp_confirmado, SesionDispositivo.objects.filter(usuario=u, revocada_en__isnull=True).count(), u.last_login, _bloqueada(u.cedula),
+    )
+
+
+def iniciar_recuperacion_presencial(soporte, cedula: str, verificacion_presencial: bool) -> None:
+    """El soporte NO restablece claves: inicia el flujo de recuperación (el enlace va solo al contacto registrado de la persona)
+    y solo después de verificar su identidad con documento en ventanilla (Anexo F)."""
+    if not politicas.puede_ver_ficha_tecnica(soporte):
+        auditoria.registrar(accion=Acciones.ACCESO_DENEGADO, actor=soporte, resultado=auditoria.DENEGADO, recurso_tipo="cuenta")
+        raise AccesoDenegado()
+    if not verificacion_presencial:
+        raise ClaveRechazada(["Debe confirmar que verificó la identidad de la persona con su documento en ventanilla."])
+    u = Usuario.objects.filter(cedula=cedula, estado=EstadoCuenta.ACTIVA).first() if es_valida(cedula or "") else None
+    if u is None:
+        raise NoEncontrado()
+    auditoria.registrar(accion=Acciones.SOPORTE_INICIA_RECUPERACION, actor=soporte, recurso_tipo="usuario", recurso_id=u.id)
+    _emitir_enlace_recuperacion(u)
+
+
+# --- Consentimiento SMS, oposición y cambio de contacto ---------------------------------------------------------------------------------------
+
+
+def actualizar_consentimiento_sms(usuario, consiente: bool) -> None:
+    """El SMS solo se envía con consentimiento libre y específico; retirarlo es tan fácil como darlo."""
+    Usuario.objects.filter(pk=usuario.pk).update(consentimiento_sms=consiente)
+    auditoria.registrar(accion=Acciones.CONSENTIMIENTO_SMS, actor=usuario, recurso_tipo="usuario", recurso_id=usuario.id, detalle={"consiente": consiente})
+
+
+def aplicar_oposicion(persona_id) -> None:
+    """Derecho de oposición: se retira el consentimiento de SMS y se detienen los recordatorios."""
+    Usuario.objects.filter(pk=persona_id).update(consentimiento_sms=False, oposicion_recordatorios=True)
+
+
+def preferencias_de_notificacion(persona_id) -> tuple[bool, bool]:
+    """(consentimiento de SMS, oposición a recordatorios)."""
+    return (
+        Usuario.objects.filter(pk=persona_id, consentimiento_sms=True).exists(),
+        Usuario.objects.filter(pk=persona_id, oposicion_recordatorios=True).exists(),
+    )
+
+
+def contacto_para_recordatorio(persona_id) -> tuple[str, str]:
+    """(canal, destino) para un recordatorio: SMS solo con consentimiento y teléfono; si no, correo. ('', '') si hay oposición."""
+    u = Usuario.objects.filter(pk=persona_id).only("correo", "telefono", "consentimiento_sms", "oposicion_recordatorios").first()
+    if u is None or u.oposicion_recordatorios:
+        return "", ""
+    if u.consentimiento_sms and u.telefono:
+        return "SMS", u.telefono
+    return ("CORREO", u.correo) if u.correo else ("", "")
+
+
+def solicitar_cambio_contacto(request, campo: str, valor: str) -> None:
+    """Cambio de correo o teléfono (rectificación): clave y segundo factor recientes; el código va al contacto NUEVO."""
+    from .modelos import CambioContacto
+
+    usuario = request.user
+    exigir_operacion_sensible(request)
+    valor = (valor or "").strip()
+    if campo == "CORREO":
+        if not (3 <= len(valor) <= 120 and valor.count("@") == 1 and " " not in valor and "." in valor.split("@")[1]):
+            raise ClaveRechazada(["El correo no es válido."])
+        valor = valor.lower()
+    elif campo == "TELEFONO":
+        if not (valor.isdigit() and valor.isascii() and 7 <= len(valor) <= 15):
+            raise ClaveRechazada(["El teléfono no es válido (solo dígitos)."])
+    else:
+        raise ClaveRechazada(["Campo no válido."])
+    _consumir_limite("cambio-contacto", str(usuario.id), P.activacion_solicitudes_por_hora_cedula, 3600)
+    codigo = f"{secrets.randbelow(10**P.activacion_digitos):0{P.activacion_digitos}d}"
+    ahora = reloj.ahora()
+    with transaction.atomic():
+        CambioContacto.objects.filter(usuario=usuario, usado=False).update(usado=True)
+        CambioContacto.objects.create(
+            usuario=usuario, campo=campo, valor_nuevo=valor, codigo_hash=_hash_hmac("contacto", str(usuario.id), codigo), creado=ahora,
+            expira=ahora + timedelta(minutes=P.cambio_contacto_minutos),
+        )
+    canal = "CORREO" if campo == "CORREO" else "SMS"
+    notificaciones.enviar(plantilla="activacion", canal=canal, destino=valor, parametros={"codigo": codigo, "minutos": P.cambio_contacto_minutos}, destinatario_id=usuario.id)
+
+
+def confirmar_cambio_contacto(request, codigo: str) -> None:
+    """Aplica el cambio, AVISA al contacto anterior y aplica 24 h de espera para operaciones sensibles (Anexo F)."""
+    from .modelos import CambioContacto
+
+    usuario = request.user
+    exigir_operacion_sensible(request)
+    anterior_correo, anterior_tel = usuario.correo, usuario.telefono
+    ahora = reloj.ahora()
+    resultado = "incorrecto"
+    with transaction.atomic():
+        c = CambioContacto.objects.select_for_update().filter(usuario=usuario, usado=False).first()
+        if c is not None and ahora < c.expira and c.intentos < P.activacion_intentos:
+            if hmac.compare_digest(_hash_hmac("contacto", str(usuario.id), (codigo or "").strip()), c.codigo_hash):
+                c.usado = True
+                c.save(update_fields=["usado"])
+                if c.campo == "CORREO":
+                    usuario.correo = c.valor_nuevo
+                else:
+                    usuario.telefono = c.valor_nuevo
+                usuario.contacto_cambiado_en = ahora
+                usuario.save(update_fields=["correo", "telefono", "contacto_cambiado_en"])
+                auditoria.registrar(accion=Acciones.CONTACTO_CAMBIADO, actor=usuario, recurso_tipo="usuario", recurso_id=usuario.id, detalle={"campo": c.campo})
+                resultado = "ok"
+            else:
+                c.intentos += 1
+                c.save(update_fields=["intentos"])
+        elif c is not None:
+            c.usado = True
+            c.save(update_fields=["usado"])
+    if resultado != "ok":
+        raise CodigoInvalido()
+    # Aviso al contacto ANTERIOR: si el cambio no lo hizo la persona, se entera.
+    notificaciones.enviar(plantilla="contacto_cambiado", canal="CORREO", destino=anterior_correo, destinatario_id=usuario.id)
+    if anterior_tel and usuario.consentimiento_sms:
+        notificaciones.enviar(plantilla="contacto_cambiado", canal="SMS", destino=anterior_tel, destinatario_id=usuario.id)
+
+
+class OperacionDiferida(Exception):
+    """Operación sensible bloqueada por la espera posterior a un cambio de contacto (24 h)."""
+
+    def __init__(self, hasta):
+        super().__init__("operación diferida")
+        self.hasta = hasta
+
+
+# --- Rotación de la clave de cifrado de los secretos TOTP ---------------------------------------------------------------------------------------
+
+
+def rotar_secretos_totp() -> dict:
+    """Recifra todos los secretos TOTP con la clave PRIMARIA actual (MultiFernet.rotate). Las claves antiguas siguen sirviendo
+    para descifrar hasta que se retiren de TOTP_CLAVES_CIFRADO. Idempotente."""
+    multi = _fernet()
+    rotados = 0
+    with transaction.atomic():
+        for u in Usuario.objects.select_for_update().exclude(totp_secreto_cifrado=""):
+            nuevo = multi.rotate(u.totp_secreto_cifrado.encode()).decode()
+            if nuevo != u.totp_secreto_cifrado:
+                u.totp_secreto_cifrado = nuevo
+                u.save(update_fields=["totp_secreto_cifrado"])
+                rotados += 1
+        auditoria.registrar(accion=Acciones.CLAVE_ROTADA, recurso_tipo="totp", detalle={"rotados": rotados})
+    return {"rotados": rotados}
+
+
+# --- Etapa 3: datos del titular, solicitudes de derechos y retención (las orquesta la app `derechos`) -----------------------------------------
+
+
+def exportar_perfil(usuario) -> dict:
+    """Datos de la cuenta en formato legible por máquina (derecho de acceso). Nunca incluye claves, secretos ni resúmenes."""
+    return {
+        "cedula": usuario.cedula, "nombres": usuario.nombres, "apellidos": usuario.apellidos, "correo": usuario.correo, "telefono": usuario.telefono,
+        "rol": usuario.rol, "estado": usuario.estado, "creada": usuario.creado.isoformat(), "atencion_prioritaria": usuario.atencion_prioritaria,
+        "consentimiento_sms": usuario.consentimiento_sms, "oposicion_recordatorios": usuario.oposicion_recordatorios,
+        "segundo_factor_configurado": usuario.totp_confirmado,
+    }
+
+
+def asegurar_anonimo():
+    """Cuenta marcador (BAJA, sin datos) a la que se reasignan los turnos anonimizados: se conserva el agregado, no la persona."""
+    u, creada = Usuario.objects.get_or_create(
+        cedula="ANONIMO000", defaults={"rol": Rol.AFILIADO.value, "estado": EstadoCuenta.BAJA.value, "password": make_password(None)}
+    )
+    return u.id
+
+
+def _baja_y_anonimizar(u: Usuario) -> None:
+    u.nombres = u.apellidos = u.correo = u.telefono = ""
+    u.totp_secreto_cifrado, u.totp_confirmado = "", False
+    u.consentimiento_sms, u.atencion_prioritaria = False, False
+    u.cedula = "B" + uuid.uuid4().hex[:9].upper()  # la cédula deja de identificar a alguien; el valor es único
+    u.estado = EstadoCuenta.BAJA.value
+    u.set_unusable_password()
+    u.save()
+    _revocar_todas(u, "BAJA_DE_LA_CUENTA")
+    CodigoActivacion.objects.filter(usuario=u).delete()
+    TokenRecuperacion.objects.filter(usuario=u).delete()
+    CodigoRecuperacionMfa.objects.filter(usuario=u).delete()
+    from .modelos import CambioContacto
+
+    CambioContacto.objects.filter(usuario=u).delete()
+
+
+def anonimizar_cuenta(persona_id, *, motivo: str) -> bool:
+    """Baja de la cuenta con anonimización de sus datos (eliminación a pedido del titular o vencimiento por inactividad)."""
+    with transaction.atomic():
+        u = Usuario.objects.select_for_update().filter(pk=persona_id).first()
+        if u is None or u.estado == EstadoCuenta.BAJA:
+            return False
+        _baja_y_anonimizar(u)
+        auditoria.registrar(accion=Acciones.CUENTA_ELIMINADA, recurso_tipo="usuario", recurso_id=u.id, detalle={"motivo": motivo})
+    return True
+
+
+def cuentas_inactivas(meses: int) -> list:
+    """Ids de cuentas de ciudadanos sin ingresar desde hace `meses` (24 por defecto): vencen y se anonimizan."""
+    corte = reloj.ahora() - timedelta(days=30 * meses)
+    cuenta = Usuario.objects.filter(rol__in=[Rol.AFILIADO.value, Rol.REPRESENTANTE.value]).exclude(estado=EstadoCuenta.BAJA)
+    return list(cuenta.filter(Q(last_login__lt=corte) | Q(last_login__isnull=True, creado__lt=corte)).values_list("id", flat=True))
+
+
+def purgar_credenciales_vencidas(dias: int) -> int:
+    """Elimina códigos de activación, tokens de recuperación y cambios de contacto ya usados o vencidos hace más de `dias`."""
+    from .modelos import CambioContacto
+
+    corte = reloj.ahora() - timedelta(days=dias)
+    n = CodigoActivacion.objects.filter(expira__lt=corte).delete()[0]
+    n += TokenRecuperacion.objects.filter(expira__lt=corte).delete()[0]
+    n += CambioContacto.objects.filter(expira__lt=corte).delete()[0]
+    n += SesionDispositivo.objects.filter(revocada_en__lt=corte).delete()[0]
+    n += Session.objects.filter(expire_date__lt=corte).delete()[0]
+    return n
+
+
+def listar_solicitudes_pendientes(usuario, pagina: int = 1, tamano: int | None = None):
+    """Solicitudes de derechos de TODOS los titulares, para el delegado de protección de datos."""
+    from .modelos import SolicitudDerechos
+
+    if not politicas.puede_atender_derechos(usuario):
+        auditoria.registrar(accion=Acciones.ACCESO_DENEGADO, actor=usuario, resultado=auditoria.DENEGADO, recurso_tipo="solicitud_derechos")
+        raise AccesoDenegado()
+    tamano = max(1, min(tamano or P.paginacion_por_defecto, P.paginacion_maxima))
+    base = SolicitudDerechos.objects.order_by("estado", "atender_antes_de")
+    total = base.count()
+    filas = base[(max(1, pagina) - 1) * tamano : max(1, pagina) * tamano]
+    ahora = reloj.ahora()
+    return [
+        {"id": s.id, "tipo": s.tipo, "estado": s.estado, "creada": s.creada, "atender_antes_de": s.atender_antes_de, "vencida": s.estado != "ATENDIDA" and ahora > s.atender_antes_de,
+         "resultado": s.resultado}
+        for s in filas
+    ], total
+
+
+def obtener_solicitud_para_atender(dpd, solicitud_id):
+    """(titular_id, tipo, estado) de una solicitud, para que `derechos` decida cómo atenderla."""
+    from .modelos import SolicitudDerechos
+
+    if not politicas.puede_atender_derechos(dpd):
+        auditoria.registrar(accion=Acciones.ACCESO_DENEGADO, actor=dpd, resultado=auditoria.DENEGADO, recurso_tipo="solicitud_derechos")
+        raise AccesoDenegado()
+    try:
+        s = SolicitudDerechos.objects.filter(pk=solicitud_id).first()
+    except (ValueError, TypeError, ValidationError):
+        s = None
+    if s is None:
+        raise NoEncontrado()
+    return s.titular_id, s.tipo, s.estado, s.id
+
+
+def marcar_solicitud_atendida(dpd, solicitud_id, resultado: str) -> None:
+    from .modelos import SolicitudDerechos
+
+    SolicitudDerechos.objects.filter(pk=solicitud_id).update(estado="ATENDIDA", atendida_en=reloj.ahora(), atendida_por=dpd, resultado=resultado[:200])

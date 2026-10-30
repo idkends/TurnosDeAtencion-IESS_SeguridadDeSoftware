@@ -4,13 +4,12 @@ root_packages =
     config
 include_external_packages = True
 
-# ---------------------------------------------------------------------------------------------------------------
+# GENERADO por scripts/generar_importlinter.py (no se edita a mano).
 # Nota: import-linter no admite subpaquetes externos (django.db, django.http...) como prohibidos; esas reglas
 # las cubre la prueba de arquitectura por inspección de AST (tests/arquitectura).
 # Las pruebas (apps/*/tests) preparan datos con el ORM y pueden cruzar apps: se excluyen de estos contratos.
 # Todo el código de producción debe cumplirlos. Si se rompe una regla, `lint-imports` falla y la prueba de
 # arquitectura (tests/arquitectura) falla con él.
-# ---------------------------------------------------------------------------------------------------------------
 
 [importlinter:contract:vistas-sin-orm]
 name = Capa 1: las vistas, esquemas y urls no importan modelos ni el ORM (solo llaman a un servicio)
@@ -19,14 +18,20 @@ source_modules =
     apps.cuentas.vistas
     apps.cuentas.esquemas
     apps.cuentas.urls
-    apps.turnos.vistas
-    apps.turnos.esquemas
-    apps.turnos.urls
     apps.delegaciones.vistas
     apps.delegaciones.esquemas
     apps.delegaciones.urls
+    apps.derechos.vistas
+    apps.derechos.esquemas
+    apps.derechos.urls
+    apps.deteccion.vistas
+    apps.deteccion.esquemas
+    apps.deteccion.urls
     apps.notificaciones.vistas
     apps.notificaciones.urls
+    apps.turnos.vistas
+    apps.turnos.esquemas
+    apps.turnos.urls
     config.vistas
 forbidden_modules =
     apps.auditoria.modelos
@@ -35,6 +40,10 @@ forbidden_modules =
     apps.cuentas.models
     apps.delegaciones.modelos
     apps.delegaciones.models
+    apps.derechos.modelos
+    apps.derechos.models
+    apps.deteccion.modelos
+    apps.deteccion.models
     apps.integraciones.modelos
     apps.integraciones.models
     apps.notificaciones.modelos
@@ -50,14 +59,24 @@ source_modules =
     apps.auditoria.servicios
     apps.cuentas.servicios
     apps.delegaciones.servicios
+    apps.derechos.servicios
+    apps.deteccion.servicios
     apps.integraciones.servicios
     apps.notificaciones.servicios
     apps.turnos.servicios
 forbidden_modules =
     apps.cuentas.vistas
     apps.delegaciones.vistas
+    apps.derechos.vistas
+    apps.deteccion.vistas
+    apps.notificaciones.vistas
     apps.turnos.vistas
     apps.cuentas.urls
+    apps.delegaciones.urls
+    apps.derechos.urls
+    apps.deteccion.urls
+    apps.notificaciones.urls
+    apps.turnos.urls
 allow_indirect_imports = True
 
 [importlinter:contract:modelos-sin-servicios]
@@ -67,18 +86,26 @@ source_modules =
     apps.auditoria.modelos
     apps.cuentas.modelos
     apps.delegaciones.modelos
+    apps.derechos.modelos
+    apps.deteccion.modelos
+    apps.integraciones.modelos
     apps.notificaciones.modelos
     apps.turnos.modelos
 forbidden_modules =
     apps.auditoria.servicios
     apps.cuentas.servicios
     apps.delegaciones.servicios
+    apps.derechos.servicios
+    apps.deteccion.servicios
     apps.integraciones.servicios
     apps.notificaciones.servicios
     apps.turnos.servicios
     apps.cuentas.vistas
-    apps.turnos.vistas
     apps.delegaciones.vistas
+    apps.derechos.vistas
+    apps.deteccion.vistas
+    apps.notificaciones.vistas
+    apps.turnos.vistas
 allow_indirect_imports = True
 
 [importlinter:contract:politicas-puras]
@@ -95,10 +122,11 @@ forbidden_modules =
 allow_indirect_imports = True
 
 [importlinter:contract:sentido-de-las-dependencias]
-name = Las apps dependen en un solo sentido (turnos > delegaciones > cuentas > notificaciones, integraciones > auditoria)
+name = Las apps dependen en un solo sentido (derechos > turnos, deteccion > delegaciones > cuentas > notificaciones, integraciones > auditoria)
 type = layers
 layers =
-    apps.turnos
+    apps.derechos
+    apps.turnos | apps.deteccion
     apps.delegaciones
     apps.cuentas
     apps.notificaciones | apps.integraciones
@@ -126,28 +154,40 @@ source_modules =
     apps.cuentas.modelos
     apps.cuentas.politicas
     apps.cuentas.middleware
+    apps.cuentas.contexto
     apps.delegaciones.servicios
     apps.delegaciones.vistas
     apps.delegaciones.esquemas
     apps.delegaciones.urls
     apps.delegaciones.modelos
+    apps.derechos.servicios
+    apps.derechos.vistas
+    apps.derechos.esquemas
+    apps.derechos.urls
+    apps.derechos.modelos
+    apps.deteccion.servicios
+    apps.deteccion.vistas
+    apps.deteccion.esquemas
+    apps.deteccion.urls
+    apps.deteccion.modelos
     apps.integraciones.servicios
     apps.integraciones.modelos
     apps.notificaciones.servicios
+    apps.notificaciones.vistas
+    apps.notificaciones.urls
     apps.notificaciones.modelos
     apps.turnos.servicios
     apps.turnos.vistas
     apps.turnos.esquemas
     apps.turnos.urls
     apps.turnos.modelos
+    apps.cuentas.management
+    apps.derechos.management
+    apps.deteccion.management
     apps.turnos.management
 forbidden_modules =
     apps.auditoria.modelos
     apps.auditoria.models
-    apps.auditoria.vistas
-    apps.auditoria.esquemas
-    apps.auditoria.urls
-    apps.auditoria.politicas
 allow_indirect_imports = True
 
 [importlinter:contract:solo-servicios-cuentas]
@@ -161,9 +201,21 @@ source_modules =
     apps.delegaciones.esquemas
     apps.delegaciones.urls
     apps.delegaciones.modelos
+    apps.derechos.servicios
+    apps.derechos.vistas
+    apps.derechos.esquemas
+    apps.derechos.urls
+    apps.derechos.modelos
+    apps.deteccion.servicios
+    apps.deteccion.vistas
+    apps.deteccion.esquemas
+    apps.deteccion.urls
+    apps.deteccion.modelos
     apps.integraciones.servicios
     apps.integraciones.modelos
     apps.notificaciones.servicios
+    apps.notificaciones.vistas
+    apps.notificaciones.urls
     apps.notificaciones.modelos
     apps.turnos.servicios
     apps.turnos.vistas
@@ -171,6 +223,8 @@ source_modules =
     apps.turnos.urls
     apps.turnos.modelos
     apps.auditoria.management
+    apps.derechos.management
+    apps.deteccion.management
     apps.turnos.management
 forbidden_modules =
     apps.cuentas.modelos
@@ -181,6 +235,7 @@ forbidden_modules =
     apps.cuentas.roles
     apps.cuentas.claves
     apps.cuentas.middleware
+    apps.cuentas.contexto
 allow_indirect_imports = True
 
 [importlinter:contract:solo-servicios-delegaciones]
@@ -196,9 +251,22 @@ source_modules =
     apps.cuentas.modelos
     apps.cuentas.politicas
     apps.cuentas.middleware
+    apps.cuentas.contexto
+    apps.derechos.servicios
+    apps.derechos.vistas
+    apps.derechos.esquemas
+    apps.derechos.urls
+    apps.derechos.modelos
+    apps.deteccion.servicios
+    apps.deteccion.vistas
+    apps.deteccion.esquemas
+    apps.deteccion.urls
+    apps.deteccion.modelos
     apps.integraciones.servicios
     apps.integraciones.modelos
     apps.notificaciones.servicios
+    apps.notificaciones.vistas
+    apps.notificaciones.urls
     apps.notificaciones.modelos
     apps.turnos.servicios
     apps.turnos.vistas
@@ -206,6 +274,9 @@ source_modules =
     apps.turnos.urls
     apps.turnos.modelos
     apps.auditoria.management
+    apps.cuentas.management
+    apps.derechos.management
+    apps.deteccion.management
     apps.turnos.management
 forbidden_modules =
     apps.delegaciones.modelos
@@ -213,7 +284,100 @@ forbidden_modules =
     apps.delegaciones.vistas
     apps.delegaciones.esquemas
     apps.delegaciones.urls
-    apps.delegaciones.politicas
+allow_indirect_imports = True
+
+[importlinter:contract:solo-servicios-derechos]
+name = Nadie fuera de derechos importa sus modelos, vistas ni piezas internas (solo su servicios.py publico)
+type = forbidden
+source_modules =
+    apps.auditoria.servicios
+    apps.auditoria.modelos
+    apps.cuentas.servicios
+    apps.cuentas.vistas
+    apps.cuentas.esquemas
+    apps.cuentas.urls
+    apps.cuentas.modelos
+    apps.cuentas.politicas
+    apps.cuentas.middleware
+    apps.cuentas.contexto
+    apps.delegaciones.servicios
+    apps.delegaciones.vistas
+    apps.delegaciones.esquemas
+    apps.delegaciones.urls
+    apps.delegaciones.modelos
+    apps.deteccion.servicios
+    apps.deteccion.vistas
+    apps.deteccion.esquemas
+    apps.deteccion.urls
+    apps.deteccion.modelos
+    apps.integraciones.servicios
+    apps.integraciones.modelos
+    apps.notificaciones.servicios
+    apps.notificaciones.vistas
+    apps.notificaciones.urls
+    apps.notificaciones.modelos
+    apps.turnos.servicios
+    apps.turnos.vistas
+    apps.turnos.esquemas
+    apps.turnos.urls
+    apps.turnos.modelos
+    apps.auditoria.management
+    apps.cuentas.management
+    apps.deteccion.management
+    apps.turnos.management
+forbidden_modules =
+    apps.derechos.modelos
+    apps.derechos.models
+    apps.derechos.vistas
+    apps.derechos.esquemas
+    apps.derechos.urls
+allow_indirect_imports = True
+
+[importlinter:contract:solo-servicios-deteccion]
+name = Nadie fuera de deteccion importa sus modelos, vistas ni piezas internas (solo su servicios.py publico)
+type = forbidden
+source_modules =
+    apps.auditoria.servicios
+    apps.auditoria.modelos
+    apps.cuentas.servicios
+    apps.cuentas.vistas
+    apps.cuentas.esquemas
+    apps.cuentas.urls
+    apps.cuentas.modelos
+    apps.cuentas.politicas
+    apps.cuentas.middleware
+    apps.cuentas.contexto
+    apps.delegaciones.servicios
+    apps.delegaciones.vistas
+    apps.delegaciones.esquemas
+    apps.delegaciones.urls
+    apps.delegaciones.modelos
+    apps.derechos.servicios
+    apps.derechos.vistas
+    apps.derechos.esquemas
+    apps.derechos.urls
+    apps.derechos.modelos
+    apps.integraciones.servicios
+    apps.integraciones.modelos
+    apps.notificaciones.servicios
+    apps.notificaciones.vistas
+    apps.notificaciones.urls
+    apps.notificaciones.modelos
+    apps.turnos.servicios
+    apps.turnos.vistas
+    apps.turnos.esquemas
+    apps.turnos.urls
+    apps.turnos.modelos
+    apps.auditoria.management
+    apps.cuentas.management
+    apps.derechos.management
+    apps.turnos.management
+forbidden_modules =
+    apps.deteccion.modelos
+    apps.deteccion.models
+    apps.deteccion.vistas
+    apps.deteccion.esquemas
+    apps.deteccion.urls
 allow_indirect_imports = True
 
 [importlinter:contract:solo-servicios-integraciones]
@@ -229,12 +393,25 @@ source_modules =
     apps.cuentas.modelos
     apps.cuentas.politicas
     apps.cuentas.middleware
+    apps.cuentas.contexto
     apps.delegaciones.servicios
     apps.delegaciones.vistas
     apps.delegaciones.esquemas
     apps.delegaciones.urls
     apps.delegaciones.modelos
+    apps.derechos.servicios
+    apps.derechos.vistas
+    apps.derechos.esquemas
+    apps.derechos.urls
+    apps.derechos.modelos
+    apps.deteccion.servicios
+    apps.deteccion.vistas
+    apps.deteccion.esquemas
+    apps.deteccion.urls
+    apps.deteccion.modelos
     apps.notificaciones.servicios
+    apps.notificaciones.vistas
+    apps.notificaciones.urls
     apps.notificaciones.modelos
     apps.turnos.servicios
     apps.turnos.vistas
@@ -242,19 +419,19 @@ source_modules =
     apps.turnos.urls
     apps.turnos.modelos
     apps.auditoria.management
+    apps.cuentas.management
+    apps.derechos.management
+    apps.deteccion.management
     apps.turnos.management
 forbidden_modules =
     apps.integraciones.modelos
     apps.integraciones.models
-    apps.integraciones.vistas
-    apps.integraciones.esquemas
-    apps.integraciones.urls
-    apps.integraciones.politicas
     apps.integraciones.adaptadores
     apps.integraciones.circuito
     apps.integraciones.puertos
     apps.integraciones.servicio_token
     apps.integraciones.sinteticos
+    apps.integraciones.simulados
 allow_indirect_imports = True
 
 [importlinter:contract:solo-servicios-notificaciones]
@@ -270,11 +447,22 @@ source_modules =
     apps.cuentas.modelos
     apps.cuentas.politicas
     apps.cuentas.middleware
+    apps.cuentas.contexto
     apps.delegaciones.servicios
     apps.delegaciones.vistas
     apps.delegaciones.esquemas
     apps.delegaciones.urls
     apps.delegaciones.modelos
+    apps.derechos.servicios
+    apps.derechos.vistas
+    apps.derechos.esquemas
+    apps.derechos.urls
+    apps.derechos.modelos
+    apps.deteccion.servicios
+    apps.deteccion.vistas
+    apps.deteccion.esquemas
+    apps.deteccion.urls
+    apps.deteccion.modelos
     apps.integraciones.servicios
     apps.integraciones.modelos
     apps.turnos.servicios
@@ -283,14 +471,15 @@ source_modules =
     apps.turnos.urls
     apps.turnos.modelos
     apps.auditoria.management
+    apps.cuentas.management
+    apps.derechos.management
+    apps.deteccion.management
     apps.turnos.management
 forbidden_modules =
     apps.notificaciones.modelos
     apps.notificaciones.models
     apps.notificaciones.vistas
-    apps.notificaciones.esquemas
     apps.notificaciones.urls
-    apps.notificaciones.politicas
     apps.notificaciones.adaptadores
 allow_indirect_imports = True
 
@@ -307,21 +496,36 @@ source_modules =
     apps.cuentas.modelos
     apps.cuentas.politicas
     apps.cuentas.middleware
+    apps.cuentas.contexto
     apps.delegaciones.servicios
     apps.delegaciones.vistas
     apps.delegaciones.esquemas
     apps.delegaciones.urls
     apps.delegaciones.modelos
+    apps.derechos.servicios
+    apps.derechos.vistas
+    apps.derechos.esquemas
+    apps.derechos.urls
+    apps.derechos.modelos
+    apps.deteccion.servicios
+    apps.deteccion.vistas
+    apps.deteccion.esquemas
+    apps.deteccion.urls
+    apps.deteccion.modelos
     apps.integraciones.servicios
     apps.integraciones.modelos
     apps.notificaciones.servicios
+    apps.notificaciones.vistas
+    apps.notificaciones.urls
     apps.notificaciones.modelos
     apps.auditoria.management
+    apps.cuentas.management
+    apps.derechos.management
+    apps.deteccion.management
 forbidden_modules =
     apps.turnos.modelos
     apps.turnos.models
     apps.turnos.vistas
     apps.turnos.esquemas
     apps.turnos.urls
-    apps.turnos.politicas
 allow_indirect_imports = True

@@ -207,3 +207,62 @@ def afiliado(request, cedula):
     except (servicios.NoEncontrado, servicios.AccesoDenegado, LimiteExcedido) as error:
         return _error(request, error)
     return render(request, "turnos/afiliado.html", {"contacto": contacto, "cedula_url": cedula})
+
+
+# --- Administración de oferta (franjas de la propia unidad) -----------------------------------------------------------------------------------------
+
+
+@endpoint("S22")
+def oferta(request):
+    form = esquemas.FiltroOfertaForm(request.GET)
+    if not form.is_valid():
+        return _invalido(request, form)
+    d = form.cleaned_data
+    try:
+        franjas, total, catalogos = servicios.listar_oferta(request.user, fecha=d["fecha"], pagina=d["pagina"] or 1, tamano=d["tamano"])
+    except servicios.AccesoDenegado as error:
+        return _error(request, error)
+    return render(request, "turnos/oferta.html", {"franjas": franjas, "total": total, "catalogos": catalogos, "form": esquemas.JornadaForm()})
+
+
+@endpoint("S23")
+def crear_oferta(request):
+    form = esquemas.JornadaForm(request.POST)
+    if not form.is_valid():
+        return _invalido(request, form)
+    d = form.cleaned_data
+    try:
+        n = servicios.crear_jornada(request.user, especialidad=d["especialidad"], fecha=d["fecha"], desde_hora=d["desde"], hasta_hora=d["hasta"],
+                                    duracion_min=d["duracion"], ultima_prioritaria=d["ultima_prioritaria"])
+    except (servicios.AccesoDenegado, servicios.ReglaRechazada, servicios.ParametroInvalido) as error:
+        return _error(request, error)
+    messages.success(request, f"Jornada creada: {n} franja(s) nuevas.")
+    return redirect(reverse("turnos:oferta"))
+
+
+@endpoint("S24")
+def cerrar_oferta(request, franja_id):
+    form = esquemas.CerrarFranjaForm(request.POST)
+    if not form.is_valid():
+        return _invalido(request, form)
+    try:
+        servicios.cerrar_franja(request.user, franja_id)
+    except (servicios.AccesoDenegado, servicios.NoEncontrado) as error:
+        return _error(request, error)
+    messages.success(request, "Franja cerrada. Si tenía un turno, la institución lo canceló y avisó a la persona.")
+    return redirect(reverse("turnos:oferta"))
+
+
+# --- Acceso excepcional («de emergencia») ------------------------------------------------------------------------------------------------------------
+
+
+@endpoint("S25")
+def emergencia(request, cedula):
+    form = esquemas.EmergenciaForm(request.POST)
+    if not form.is_valid():
+        return _invalido(request, form)
+    try:
+        contacto = servicios.acceso_emergencia(request.user, cedula, form.cleaned_data["motivo"])
+    except (servicios.NoEncontrado, servicios.AccesoDenegado, servicios.ReglaRechazada, LimiteExcedido) as error:
+        return _error(request, error)
+    return render(request, "turnos/afiliado.html", {"contacto": contacto, "cedula_url": cedula, "emergencia": True})
