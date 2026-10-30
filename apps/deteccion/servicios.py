@@ -231,7 +231,8 @@ def d14_fallos_de_terceros(ahora):
 def d15_respaldos(ahora):
     hallazgos = [Hallazgo("D15", ALTA, "Falló la copia de respaldo", f"ev:{e['secuencia']}", dict(e["detalle"] or {}), "Corregir antes del siguiente ciclo")
                  for e in auditoria.consultar_ventana([Acciones.RESPALDO_FALLIDO], ahora - timedelta(days=2))]
-    hubo_respaldos = auditoria.consultar_ventana([Acciones.RESPALDO_REALIZADO], ahora - timedelta(days=365), limite=1)
+    # Solo exige la prueba si el sistema ya lleva más de 90 días haciendo respaldos (el primero es anterior al plazo).
+    hubo_respaldos = auditoria.consultar_ventana([Acciones.RESPALDO_REALIZADO], ahora - timedelta(days=365), hasta=ahora - timedelta(days=P.d15_dias_sin_prueba_restauracion), limite=1)
     if hubo_respaldos:
         probada = auditoria.consultar_ventana([Acciones.RESTAURACION_PROBADA], ahora - timedelta(days=P.d15_dias_sin_prueba_restauracion), limite=1)
         if not probada:

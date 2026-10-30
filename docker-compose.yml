@@ -17,6 +17,9 @@ networks:
 volumes:
   pgdata: {}
   bandeja: {}
+  # Copias FUERA del volumen de la base (Anexo I): en producción serían almacenamiento remoto aparte.
+  wal_archivo: {}   # segmentos WAL archivados (recuperación a un punto en el tiempo, PITR)
+  respaldos: {}     # copias base cifradas, diarias
 
 x-app-entorno: &app-entorno
   DJANGO_SETTINGS_MODULE: config.settings.prod
@@ -131,8 +134,17 @@ services:
       DB_MIGRACIONES_CLAVE: ${DB_MIGRACIONES_CLAVE}
       DB_AUDITORIA_RO_CLAVE: ${DB_AUDITORIA_RO_CLAVE}
       DB_CLAVE_PRUEBAS: ${DB_CLAVE_PRUEBAS}
+    # Archivado continuo de WAL para PITR: RPO objetivo de minutos (archive_timeout fuerza el cierre de segmentos).
+    command:
+      - sh
+      - -c
+      - |
+        chown postgres:postgres /wal_archivo /respaldos
+        exec docker-entrypoint.sh postgres -c wal_level=replica -c archive_mode=on -c archive_timeout=60           -c "archive_command=test ! -f /wal_archivo/%f && cp %p /wal_archivo/%f"
     volumes:
       - pgdata:/var/lib/postgresql
+      - wal_archivo:/wal_archivo
+      - respaldos:/respaldos
       - ./docker/db/init:/docker-entrypoint-initdb.d:ro
     networks: [datos]   # sin "ports": PostgreSQL no se expone al host
     healthcheck:

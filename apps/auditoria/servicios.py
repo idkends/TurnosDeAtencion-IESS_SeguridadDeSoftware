@@ -114,6 +114,8 @@ _CLAVES_SENSIBLES = re.compile(
     re.IGNORECASE,
 )
 _REDACTADO = "[REDACTADO]"
+# Las claves terminadas en "_ref" guardan referencias NO reversibles (prefijo de un hash: cedula_ref, token_ref) que la detección
+# necesita para correlacionar eventos sin conocer el secreto; no se redactan.
 
 
 def _redactar(valor, profundidad: int = 0):
@@ -122,7 +124,7 @@ def _redactar(valor, profundidad: int = 0):
         return _REDACTADO
     if isinstance(valor, dict):
         return {
-            str(k)[:60]: (_REDACTADO if _CLAVES_SENSIBLES.search(str(k)) else _redactar(v, profundidad + 1))
+            str(k)[:60]: (_REDACTADO if _CLAVES_SENSIBLES.search(str(k)) and not str(k).endswith("_ref") else _redactar(v, profundidad + 1))
             for k, v in valor.items()
         }
     if isinstance(valor, (list, tuple)):
@@ -287,7 +289,9 @@ def listar_eventos(*, accion=None, resultado=None, actor_id=None, desde=None, ha
 
 def consultar_ventana(acciones, desde, *, hasta=None, resultado=None, limite: int = 50_000) -> list[dict]:
     """Eventos de las `acciones` indicadas desde `desde`, más antiguos primero. Es la ÚNICA fuente de la detección (D01-D18)."""
-    consulta = EventoAuditoria.objects.filter(accion__in=list(acciones), ocurrido_en__gte=desde)
+    consulta = EventoAuditoria.objects.filter(ocurrido_en__gte=desde)
+    if acciones is not None:  # None = todas las acciones (lo usa la exportación puntual)
+        consulta = consulta.filter(accion__in=list(acciones))
     if hasta is not None:
         consulta = consulta.filter(ocurrido_en__lt=hasta)
     if resultado:

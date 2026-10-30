@@ -1321,9 +1321,15 @@ def rotar_secretos_totp() -> dict:
     """Recifra todos los secretos TOTP con la clave PRIMARIA actual (MultiFernet.rotate). Las claves antiguas siguen sirviendo
     para descifrar hasta que se retiren de TOTP_CLAVES_CIFRADO. Idempotente."""
     multi = _fernet()
+    primaria = Fernet(settings.TOTP_CLAVES_CIFRADO[0].encode())
     rotados = 0
     with transaction.atomic():
         for u in Usuario.objects.select_for_update().exclude(totp_secreto_cifrado=""):
+            try:
+                primaria.decrypt(u.totp_secreto_cifrado.encode())
+                continue  # ya está con la clave primaria (Fernet recifra siempre, así que se comprueba antes)
+            except InvalidToken:
+                pass
             nuevo = multi.rotate(u.totp_secreto_cifrado.encode()).decode()
             if nuevo != u.totp_secreto_cifrado:
                 u.totp_secreto_cifrado = nuevo

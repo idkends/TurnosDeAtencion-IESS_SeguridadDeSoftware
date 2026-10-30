@@ -24,3 +24,5 @@ staticfiles/
 *.log
 .idea/
 .vscode/
+
+respaldos_locales/

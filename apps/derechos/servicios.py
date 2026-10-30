@@ -214,9 +214,7 @@ def entregar_exportacion(usuario, exportacion_id) -> str:
             e.estado = "VENCIDA"
             e.save(update_fields=["estado"])
             raise DerechosRechazado("VENCIDA", "La aprobación venció: solicite la exportación de nuevo.")
-        eventos = auditoria.consultar_ventana(
-            [v for k, v in vars(Acciones).items() if k.isupper() and isinstance(v, str)], e.desde, hasta=e.hasta, limite=P.exportacion_filas_maximas
-        )
+        eventos = auditoria.consultar_ventana(None, e.desde, hasta=e.hasta, limite=P.exportacion_filas_maximas)
         salida = io.StringIO()
         escritor = csv.writer(salida)
         escritor.writerow(["secuencia", "ocurrido_en", "actor_rol", "accion", "resultado", "recurso_tipo", "recurso_id"])

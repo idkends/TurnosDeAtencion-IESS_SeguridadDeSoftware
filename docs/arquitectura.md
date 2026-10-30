@@ -252,3 +252,55 @@ acciones de auditoría ampliado; `servicios` de `cuentas` ahora exponen consulta
 **corrección de un error**: iniciar sesión estando ya autenticado en el mismo navegador daba un 500 (la sesión del mismo
 dispositivo se revocaba y luego se intentaba guardar); ahora se descarta y se crea una nueva (prueba de regresión
 `test_iniciar_sesion_estando_ya_autenticado…`).
+
+## 9. Etapa 3: paneles, detección, derechos, respaldos y claves
+
+**Apps y capas** (de arriba abajo): `derechos` > `turnos | deteccion` > `delegaciones` > `cuentas` > `notificaciones | integraciones` > `auditoria`.
+`deteccion` solo lee la auditoría (`consultar_ventana`) y actúa mediante `config.bloqueos`, `config.metricas` y los servicios de `cuentas`;
+nunca importa vistas (prueba de arquitectura). `ejecutar_tareas` vive en `derechos` porque orquesta capas altas. El archivo `.importlinter`
+se **genera** con `scripts/generar_importlinter.py` y una prueba comprueba que está al día.
+
+**Paneles** (rutas S11-S27 en `docs/endpoints.md`): soporte (ficha técnica enmascarada, solo inicia la recuperación hacia el contacto registrado),
+oferta (jornadas y cierre de franjas, limitado a la unidad), alertas (D01-D18), derechos del titular y exportaciones puntuales con doble aprobación,
+acceso excepcional de emergencia (motivo ≥ 20 caracteres, aviso inmediato, alerta D10 hasta revisión). No existe exportación masiva.
+
+**Auditoría:** asientos de corrección (`proponer_correccion` → `aprobar_correccion` por un segundo supervisor); nunca se edita un asiento.
+`verificar_auditoria` deja rastro si falla (D11). Rotación de clave versionada: ver `docs/claves.md`.
+
+**Respuesta automática:** bloqueo de origen (403 + `Retry-After`, `/salud` exento), desafío adaptativo (suma firmada de un solo uso, solo cuando
+la detección lo activa) y sala de espera (503 + `Retry-After`) cuando el p95 se degrada. Los límites por ruta/IP/cuenta/dispositivo viven en Redis.
+
+**Retención y derechos:** tarea diaria `ejecutar_vencimiento` (24 meses de turnos, 12 de auditoría archivada/notificaciones/…, códigos 7 días)
+con constancia por categoría; eliminación a petición con anonimización y órdenes a encargados simulados (aviso 3 días, eliminación 5).
+
+### Respaldos y recuperación (Anexo I)
+
+- PostgreSQL archiva WAL de forma continua (`archive_mode=on`, `archive_timeout=60`) en el volumen `wal_archivo`.
+- `scripts/respaldo.sh` (diario) hace `pg_basebackup`, lo cifra con AES-256 (`RESPALDO_CLAVE`), lo guarda en el volumen `respaldos` y en `./respaldos_locales`
+  (fuera de Docker), escribe un manifiesto con hash y registra `RESPALDO_REALIZADO`/`RESPALDO_FALLIDO` en la auditoría. Conserva 14 copias.
+- `scripts/restaurar.sh [--hasta "<fecha>"]` levanta un PostgreSQL **nuevo y aislado**, restaura la última copia, reproduce el WAL (PITR), verifica la cadena
+  de auditoría con la aplicación y escribe `docs/evidencia/restauracion_<fecha>.json` con RPO y RTO medidos. Sale con error si RPO > 300 s o RTO > 1800 s.
+- **Primera medición real (2026-10-30):** RPO 0 s (0 asientos perdidos; la secuencia recuperada, 82, supera a la de la copia base, 80, así que el WAL se reprodujo),
+  RTO 10 s, cadena íntegra. Es un volumen de datos de prototipo: en producción el RTO crece con el tamaño de la base y debe remedirse.
+
+### Despliegue rolling (sin corte)
+
+1. Migraciones **compatibles hacia atrás** (añadir antes de usar; borrar en un despliegue posterior). Se aplican con el servicio `migrar` (rol dueño del esquema).
+2. Levantar la versión nueva de `app` junto a la anterior (`docker compose up -d --no-deps --scale app=2 app`); el proxy solo enruta a instancias con `/salud` sana.
+3. Retirar las instancias antiguas (`--scale app=1`) y reiniciar `tareas`. Si `/salud` falla, no se retira la anterior (reversa inmediata).
+4. Rotaciones de clave: sección correspondiente de `docs/claves.md`.
+
+### Desviaciones de la Etapa 3
+
+| Tema | Decisión | Motivo |
+|---|---|---|
+| `/mis-datos/contacto` y `/preferencias` | Abiertas a cualquier rol autenticado | Son datos propios; el funcionario también es titular |
+| Copia base | `pg_basebackup` por socket local dentro del contenedor de la base (superusuario) | Evita abrir `pg_hba` de replicación a la red |
+| Respaldo "fuera del volumen" | Segundo volumen Docker + carpeta del anfitrión | En producción sería almacenamiento remoto distinto |
+| Redacción de logs | También redacta cualquier clave que *contenga* `secret`, `token`, `clave`… (`totp_secreto=`) | Hallazgo de las pruebas |
+| `rotar_totp` | Idempotente de verdad (omite lo ya cifrado con la clave primaria) | Fernet recifra siempre; hallazgo de las pruebas |
+
+### Cambios a etapas anteriores
+
+`FormateadorSeguro` (más patrones), `rotar_secretos_totp` (idempotencia), `docker-compose.yml` (WAL, volúmenes, comando de `db`), `.env.example` y
+`generar_env.py` (`RESPALDO_CLAVE`), nuevas columnas en `cuentas`/`turnos`/`auditoria` (migraciones `0004`, `0003`, `0003`).

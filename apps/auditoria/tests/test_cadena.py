@@ -155,3 +155,10 @@ def test_escritores_simultaneos_no_bifurcan_la_cadena():
     resultado = auditoria.verificar_cadena()
     assert resultado.correcta and resultado.eventos_revisados == 20
     assert len(set(EventoAuditoria.objects.values_list("hash_anterior", flat=True))) == 20  # ningún eslabón repetido
+
+
+@pytest.mark.django_db
+def test_las_referencias_no_reversibles_no_se_redactan_porque_la_deteccion_las_necesita():
+    evento = auditoria.registrar(accion="PRUEBA", detalle={"token_ref": "a1b2c3d4e5f6", "cedula_ref": "0123456789abcdef", "token": "secreto-completo"})
+    assert evento.detalle["token_ref"] == "a1b2c3d4e5f6" and evento.detalle["cedula_ref"] == "0123456789abcdef"
+    assert evento.detalle["token"] == "[REDACTADO]"  # el token entero sí se redacta

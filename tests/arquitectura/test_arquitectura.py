@@ -176,10 +176,7 @@ def test_META_la_regla_de_vista_fina_detecta_orm_modelos_y_permisos(tmp_path):
 
 def test_META_la_regla_de_escrituras_no_confunde_la_cache_con_el_orm(tmp_path):
     f = tmp_path / "bloqueos.py"
-    f.write_text("def f():
-    _cache().delete('k')
-    caches['x'].delete('k')
-", encoding="utf-8")
+    f.write_text("def f():\n    _cache().delete('k')\n    caches['x'].delete('k')\n", encoding="utf-8")
     assert reglas.violaciones_escritura_fuera_de_servicios(f) == []
 
 

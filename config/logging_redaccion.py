@@ -7,8 +7,8 @@ import logging
 import re
 
 _PARES = re.compile(
-    r"(?i)\b(password|passwd|pwd|clave\w*|contrase[ñn]a\w*|token\w*|secret\w*|codigo\w*|otp|totp|authorization|cookie|"
-    r"sessionid|csrftoken|csrfmiddlewaretoken|api[_-]?key|diagn[oó]stic\w*)\b(\s*[=:]\s*)(\"[^\"]*\"|'[^']*'|\S+)"
+    r"(?i)\b(\w*(?:password|passwd|pwd|clave|contrase[ñn]a|token|secret|codigo|otp|authorization|cookie|"
+    r"sessionid|csrftoken|csrfmiddlewaretoken|api[_-]?key|diagn[oó]stic)\w*)\b(\s*[=:]\s*)(\"[^\"]*\"|'[^']*'|\S+)"
 )
 _PORTADOR = re.compile(r"(?i)\b(Bearer|Basic)\s+[A-Za-z0-9._\-+/=]+")
 _COOKIES = re.compile(r"(?i)(__Host-\w+|sessionid|csrftoken)=[^\s;,]+")
@@ -17,8 +17,8 @@ _DIEZ_DIGITOS = re.compile(r"(?<!\d)\d{10}(?!\d)")  # cédulas y teléfonos
 
 
 def redactar(texto: str) -> str:
-    texto = _PARES.sub(lambda m: f"{m.group(1)}{m.group(2)}[REDACTADO]", texto)
     texto = _PORTADOR.sub(lambda m: f"{m.group(1)} [REDACTADO]", texto)
+    texto = _PARES.sub(lambda m: f"{m.group(1)}{m.group(2)}[REDACTADO]", texto)
     texto = _COOKIES.sub(lambda m: f"{m.group(1)}=[REDACTADO]", texto)
     texto = _LARGOS.sub("[TOKEN]", texto)
     return _DIEZ_DIGITOS.sub("[ID]", texto)

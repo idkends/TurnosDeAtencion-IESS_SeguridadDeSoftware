@@ -35,6 +35,7 @@ def main() -> int:
         "DB_MIGRACIONES_CLAVE": secrets.token_urlsafe(32),
         "DB_AUDITORIA_RO_CLAVE": secrets.token_urlsafe(32),
         "DB_CLAVE_PRUEBAS": secrets.token_urlsafe(32),
+        "RESPALDO_CLAVE": secrets.token_urlsafe(48),
         "REDIS_CLAVE": secrets.token_urlsafe(32),
         "SERVICIOS_CLAVE_AFILIACION": secrets.token_urlsafe(48),
         "SERVICIOS_CLAVE_AGENDA": secrets.token_urlsafe(48),
