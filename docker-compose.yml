@@ -141,6 +141,11 @@ services:
       SERVICIOS_CLAVE_AFILIACION: ${SERVICIOS_CLAVE_AFILIACION}
       AFILIACION_SIM_PUERTO: "9001"
     networks: [externos]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import socket; socket.create_connection(('127.0.0.1', 9001), 2).close()"]
+      interval: 15s
+      timeout: 4s
+      retries: 3
     restart: unless-stopped
 
   # --- Utilidades (perfiles: no arrancan con `docker compose up`) ---
@@ -182,3 +187,5 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      migrar:
+        condition: service_completed_successfully

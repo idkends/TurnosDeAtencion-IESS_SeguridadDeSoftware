@@ -9,11 +9,12 @@ EXCLUIDOS = {".git", "var", "staticfiles", "__pycache__", ".pytest_cache", "docs
 
 
 def _archivos_de_texto():
+    """Archivos de texto del repositorio (se omiten binarios, el .env local, claves de desarrollo y datos de la lista)."""
     for ruta in RAIZ.rglob("*"):
         partes = set(ruta.relative_to(RAIZ).parts)
-        if not ruta.is_file() or partes & EXCLUIDOS or ruta.name == ".env" or ruta.suffix in {".pem", ".key", ".pdf", ".pyc", ".txt"} and "claves_filtradas" not in ruta.name and ruta.name.startswith("requirements") is False:
+        if not ruta.is_file() or partes & EXCLUIDOS or ruta.name == ".env":
             continue
-        if ruta.name == "claves_filtradas.txt" or ruta.suffix in {".pem", ".key", ".pdf", ".pyc"}:
+        if ruta.suffix in {".pem", ".key", ".pdf", ".pyc"} or ruta.name == "claves_filtradas.txt":
             continue
         try:
             yield ruta, ruta.read_text(encoding="utf-8")
