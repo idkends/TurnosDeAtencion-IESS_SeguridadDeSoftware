@@ -163,7 +163,7 @@ def test_la_sesion_se_rota_al_iniciar_sesion(crear_usuario, clave_buena):
 # --- CSRF, errores y entradas ---------------------------------------------------------------------------------------------------------------
 
 
-def test_R16_el_csrf_esta_activo_y_rechaza_posts_sin_token(crear_usuario, clave_buena):
+def test_T14_R16_el_csrf_esta_activo_y_rechaza_posts_sin_token(crear_usuario, clave_buena):
     usuario = crear_usuario()
     cliente = Client(enforce_csrf_checks=True)
     r = cliente.post(reverse("cuentas:ingresar"), {"cedula": usuario.cedula, "clave": clave_buena}, secure=True)
@@ -218,7 +218,7 @@ def test_las_rutas_protegidas_exigen_sesion():
         assert r.status_code == 302 and "/sesion" in r["Location"], nombre
 
 
-def test_inyeccion_en_login_falla_sin_error_tecnico_visible():
+def test_CA08_T14_inyeccion_en_login_falla_sin_error_tecnico_visible():
     cliente = Client()
     for carga in ("' OR '1'='1", "1750000001'; DROP TABLE cuentas_usuario;--", "<script>alert(1)</script>"):
         r = cliente.post(reverse("cuentas:ingresar"), {"cedula": carga, "clave": carga}, secure=True)

@@ -274,7 +274,7 @@ def test_E11_reprogramar_por_http_con_clave_de_idempotencia(oferta, ciudadano):
     assert c.post(f"/turnos/{t.id}/reprogramar", {"franja": str(f2.id)}, **HTTPS).status_code == 400  # sin clave
 
 
-def test_E12_apelar_por_http_con_texto_escapado(oferta, ciudadano, funcionario):
+def test_CA08_E12_apelar_por_http_con_texto_escapado(oferta, ciudadano, funcionario):
     a = ciudadano()
     recepcion = funcionario("RECEPCION", oferta["est1"])
     f = franja_futura(oferta["est1"], oferta["esp1"], dias=1)
@@ -366,7 +366,7 @@ def test_E15_sin_segundo_factor_reciente_redirige_y_el_personal_recibe_403(ofert
 # --- E20: enlaces de un solo uso ------------------------------------------------------------------------------------------------------------------------
 
 
-def test_E20_el_enlace_redirige_a_iniciar_sesion_sirve_una_vez_y_no_abre_datos(oferta, ciudadano):
+def test_T05_E20_el_enlace_redirige_a_iniciar_sesion_sirve_una_vez_y_no_abre_datos(oferta, ciudadano):
     a = ciudadano()
     t = _turno_de(a, franja_futura(oferta["est1"], oferta["esp1"]))
     token = notificaciones.crear_enlace(destinatario_id=a.id, turno_id=t.id)
@@ -411,7 +411,7 @@ def test_E21_salud_responde_sin_datos_ni_versiones_y_el_proxy_la_bloquea_desde_f
     assert re.search(r"location = /salud \{\s*allow 127\.0\.0\.1;\s*deny all;", nginx)
 
 
-def test_R08_los_registros_de_acceso_del_proxy_no_llevan_cedulas_ni_tokens_ni_consultas():
+def test_T06_R08_los_registros_de_acceso_del_proxy_no_llevan_cedulas_ni_tokens_ni_consultas():
     from pathlib import Path
 
     nginx = (Path(__file__).resolve().parents[2] / "docker/nginx/nginx.conf").read_text(encoding="utf-8")

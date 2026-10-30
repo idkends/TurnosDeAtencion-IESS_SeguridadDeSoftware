@@ -8,7 +8,7 @@ RAIZ = Path(__file__).resolve().parents[2]
 EVIDENCIAS = sorted((RAIZ / "docs" / "evidencia").glob("restauracion_*.json"))
 
 
-def test_el_compose_archiva_wal_y_guarda_copias_fuera_del_volumen_de_la_base():
+def test_T08_el_compose_archiva_wal_y_guarda_copias_fuera_del_volumen_de_la_base():
     texto = (RAIZ / "docker-compose.yml").read_text(encoding="utf-8")
     assert "archive_mode=on" in texto and "wal_level=replica" in texto and "archive_command=" in texto
     bloque_db = texto.split("\n  db:")[1].split("\n  redis:")[0]
@@ -35,7 +35,7 @@ def test_la_clave_de_respaldo_es_una_variable_de_entorno_sin_valor_en_el_reposit
 
 
 @pytest.mark.skipif(not EVIDENCIAS, reason="aún no se ejecutó scripts/restaurar.sh")
-def test_la_ultima_prueba_de_restauracion_cumple_rpo_y_rto():
+def test_T08_la_ultima_prueba_de_restauracion_cumple_rpo_y_rto():
     ev = json.loads(EVIDENCIAS[-1].read_text(encoding="utf-8"))
     assert ev["cadena_auditoria"] == "íntegra"
     assert ev["rpo_segundos"] <= ev["rpo_objetivo_segundos"] == 300

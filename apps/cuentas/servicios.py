@@ -544,7 +544,7 @@ def obtener_configuracion_mfa(request) -> ConfiguracionMfa:
         name=usuario.cedula, issuer_name="Portal de turnos IESS (prueba)"
     )
     qr = segno.make(uri, error="m").svg_inline(scale=5, border=2)
-    return ConfiguracionMfa(secreto=secreto, uri=uri, qr_svg=mark_safe(qr))  # SVG generado por segno a partir del URI propio
+    return ConfiguracionMfa(secreto=secreto, uri=uri, qr_svg=mark_safe(qr))  # nosec B703,B308
 
 
 def confirmar_configuracion_mfa(request, codigo: str) -> ResultadoLogin:
@@ -944,6 +944,24 @@ def aprovisionar_cuenta(*, cedula: str, rol: str, nombres: str, apellidos: str, 
         if rol not in (Rol.AFILIADO.value, Rol.REPRESENTANTE.value):  # D18: alta de un funcionario
             auditoria.registrar(accion=Acciones.CAMBIO_PRIVILEGIOS, recurso_tipo="usuario", recurso_id=usuario.id, detalle={"rol_nuevo": rol, "cambio": "alta"})
     return usuario, True
+
+
+def preparar_cuenta_demo(cedula: str) -> str | None:
+    """Solo para demostraciones y análisis dinámico: deja la cuenta ACTIVA con una clave nueva y aleatoria (se entrega una vez).
+
+    No existe en producción como ruta: solo la invoca el comando `usuarios_demo` con acceso al contenedor. Audita el cambio.
+    """
+    usuario = Usuario.objects.filter(cedula=cedula).first()
+    if usuario is None:
+        return None
+    clave = secrets.token_urlsafe(15)
+    with transaction.atomic():
+        usuario.set_password(clave)
+        usuario.estado = EstadoCuenta.ACTIVA.value
+        usuario.clave_cambiada_en = reloj.ahora()
+        usuario.save(update_fields=["password", "estado", "clave_cambiada_en"])
+        auditoria.registrar(accion=Acciones.CLAVE_CAMBIADA, recurso_tipo="usuario", recurso_id=usuario.id, detalle={"origen": "usuarios_demo"})
+    return clave
 
 
 # --- Consultas de personas para otras apps (etapa 2) ---------------------------------------------------------------------------------

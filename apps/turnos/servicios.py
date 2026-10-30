@@ -322,19 +322,26 @@ def generar_franjas(establecimientos, especialidades, dias: int | None = None) -
 
 
 def catalogos() -> dict:
-    return {
+    """Catálogos públicos (sin datos personales). Caché corta: se consultan en cada pantalla y casi nunca cambian (R21)."""
+    cache = caches["default"]
+    en_cache = cache.get("catalogos")
+    if en_cache is not None:
+        return en_cache
+    datos = {
         "especialidades": list(Especialidad.objects.filter(activa=True).order_by("nombre").values_list("codigo", "nombre")),
         "establecimientos": list(Establecimiento.objects.filter(activo=True).order_by("nombre").values_list("codigo", "nombre")),
     }
+    cache.set("catalogos", datos, P.catalogos_cache_segundos)
+    return datos
 
 
 # --- E01: disponibilidad (pública, sin datos personales) ------------------------------------------------------------------------------------
 
 
-def buscar_disponibilidad(*, especialidad=None, establecimiento=None, fecha: date | None = None, pagina=1, tamano=None, usuario=None) -> PaginaDisponibilidad:
+def buscar_disponibilidad(*, especialidad=None, establecimiento=None, fecha: date | None = None, pagina=1, tamano=None, usuario=None, _catalogos=None) -> PaginaDisponibilidad:
     """Franjas libres. Parámetros en lista blanca (códigos del catálogo y fecha); paginado; con caché corta (30 s)."""
     pagina, tamano = _paginar(pagina, tamano)
-    cat = catalogos()
+    cat = _catalogos or catalogos()
     if especialidad and especialidad not in {c for c, _ in cat["especialidades"]}:
         raise ParametroInvalido("especialidad")
     if establecimiento and establecimiento not in {c for c, _ in cat["establecimientos"]}:
@@ -1147,17 +1154,20 @@ class PantallaDisponibilidad:
     representados: list
     restricciones: list
     puede_reservar: bool
+    cache_segundos: int
 
 
 def pantalla_disponibilidad(usuario, **filtros) -> PantallaDisponibilidad:
-    pagina = buscar_disponibilidad(usuario=usuario, **filtros)
+    cat = catalogos()
+    pagina = buscar_disponibilidad(usuario=usuario, _catalogos=cat, **filtros)
     puede = politicas.puede_reservar_en_linea(usuario)
     return PantallaDisponibilidad(
         pagina=pagina,
-        catalogos=catalogos(),
+        catalogos=cat,
         representados=delegaciones.representados_de(usuario) if puede else [],
         restricciones=restricciones_de(usuario) if puede else [],
         puede_reservar=puede,
+        cache_segundos=P.disponibilidad_fragmento_cache_segundos,
     )
 
 

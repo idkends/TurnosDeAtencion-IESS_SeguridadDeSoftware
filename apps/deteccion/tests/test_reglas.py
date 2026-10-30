@@ -93,7 +93,7 @@ def test_D03_los_fallos_desde_pocas_ip_no_disparan():
     assert _regla("D03") == []
 
 
-def test_D04_enumeracion_de_30_cedulas_desde_una_ip_bloquea_el_origen():
+def test_T12_D04_enumeracion_de_30_cedulas_desde_una_ip_bloquea_el_origen():
     _eventos(Acciones.ACTIVACION_SOLICITADA, 29, distinto="cedula_ref", resultado="DENEGADO")
     assert _regla("D04") == []
     _eventos(Acciones.RECUPERACION_SOLICITADA, 1, detalle={"cedula_ref": "ref-otra"}, resultado="DENEGADO")

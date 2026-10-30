@@ -219,3 +219,9 @@ LOGGING = {
     "root": {"handlers": ["consola"], "level": "INFO"},
     "loggers": {"django.request": {"level": "WARNING"}},
 }
+
+# --- Archivos estáticos: sin CORS abierto (WhiteNoise pone `Access-Control-Allow-Origin: *` por omisión) y con las cabeceras de seguridad ---
+WHITENOISE_ALLOW_ALL_ORIGINS = False
+from config.estaticos import cabeceras as _cabeceras_estaticos  # noqa: E402
+
+WHITENOISE_ADD_HEADERS_FUNCTION = _cabeceras_estaticos

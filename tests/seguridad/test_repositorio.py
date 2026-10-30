@@ -121,3 +121,31 @@ def test_sin_django_gis():
     for ruta, texto in _archivos_de_texto():
         if ruta.suffix == ".py" and "tests" not in ruta.parts:
             assert "django.contrib.gis" not in texto, ruta
+
+
+def test_T18_los_servicios_estan_endurecidos_sin_root_solo_lectura_sin_capacidades_y_con_limites():
+    servicios = _servicios_del_compose()
+    for nombre in ("proxy", "app", "tareas", "migrar", "afiliacion_sim", "agenda_sim", "redis", "db"):
+        b = servicios[nombre]
+        assert "<<: *endurecido" in b or ("read_only: true" in b and "cap_drop: [ALL]" in b), f"{nombre}: sin endurecimiento"
+        assert "mem_limit:" in b and "cpus:" in b, f"{nombre}: sin límites de recursos"
+        assert "healthcheck:" in b or nombre in {"migrar", "app"}, nombre  # `migrar` termina solo; `app` lo declara en el Dockerfile (HEALTHCHECK)
+        assert not re.search(r"^\s+privileged:\s*true", b, re.M) and "network_mode: host" not in b and "/var/run/docker.sock" not in b, nombre
+    anclas = re.search(r"x-endurecido: &endurecido\n((?:  .*\n)+)", (RAIZ / "docker-compose.yml").read_text(encoding="utf-8")).group(1)
+    for exigido in ("read_only: true", "cap_drop: [ALL]", "no-new-privileges:true", "pids_limit"):
+        assert exigido in anclas, exigido
+    assert "cap_add" not in servicios["app"] and "cap_add" not in servicios["proxy"]  # solo la base necesita cinco, por su arranque como root
+
+
+def test_T18_las_imagenes_tienen_version_y_resumen_fijados():
+    compose = (RAIZ / "docker-compose.yml").read_text(encoding="utf-8")
+    imagenes = re.findall(r"^\s+image: (\S+)", compose, re.M)
+    assert imagenes and all(re.search(r":\d[\w.\-]*@sha256:[0-9a-f]{64}$", i) for i in imagenes), imagenes  # nada de latest ni de etiquetas móviles
+    externas = [f for f in re.findall(r"^FROM (\S+)", (RAIZ / "Dockerfile").read_text(encoding="utf-8"), re.M) if ":" in f]
+    assert externas and all("@sha256:" in f for f in externas), externas
+
+
+def test_T18_las_aplicaciones_corren_como_usuario_no_root():
+    dockerfile = (RAIZ / "Dockerfile").read_text(encoding="utf-8")
+    final = dockerfile.split("AS final", 1)[1]
+    assert re.search(r"^USER app$", final, re.M) and "useradd --system --uid 10001" in final

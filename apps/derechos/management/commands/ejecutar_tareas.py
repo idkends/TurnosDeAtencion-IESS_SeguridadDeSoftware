@@ -24,7 +24,7 @@ class Command(BaseCommand):
         parser.add_argument("--una-vez", action="store_true", help="Ejecuta una sola vez y termina.")
 
     def handle(self, *args, **opciones):
-        vivo = pathlib.Path("/tmp/tareas.vivo")
+        vivo = pathlib.Path("/tmp/tareas.vivo")  # nosec B108
         ultimo_vencimiento = 0.0
         while True:
             for nombre, tarea in (

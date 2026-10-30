@@ -1,0 +1,9 @@
+# Configuración de gitleaks: reglas por defecto + excepciones justificadas (cadenas ficticias de las pruebas, no secretos).
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Cadenas ficticias dentro de las pruebas automáticas (datos sintéticos)"
+# Solo la regla genérica y solo en carpetas de pruebas: un secreto real en código o configuración seguiría detectándose.
+targetRules = ["generic-api-key"]
+paths = ['''(^|/)tests/.*\.py$''']

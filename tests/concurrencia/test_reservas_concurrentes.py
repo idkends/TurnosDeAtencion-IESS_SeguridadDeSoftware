@@ -86,7 +86,7 @@ def test_T07_mil_intentos_por_la_ultima_franja_una_sola_venta(oferta):
     assert Turno.objects.get(franja=franja).id == ventas[0][1]
 
 
-def test_RT01_la_misma_persona_en_20_franjas_a_la_vez_obtiene_un_solo_turno_por_especialidad(oferta, parametro):
+def test_T16_RT01_la_misma_persona_en_20_franjas_a_la_vez_obtiene_un_solo_turno_por_especialidad(oferta, parametro):
     parametro("limite_reservas_por_hora_cuenta", 1000)  # aquí se prueba la base, no el límite por cuenta
     (afiliado,) = _crear_afiliados(1, 30_000)
     franjas = [franja_futura(oferta["est1"], oferta["esp1"], dias=2 + (i // 6), hora=8 + i % 6) for i in range(20)]
@@ -134,3 +134,18 @@ def test_cancelar_y_reservar_a_la_vez_no_deja_el_cupo_en_un_estado_inconsistente
     ocupada = Franja.objects.get(pk=franja.pk).estado == EstadoFranja.OCUPADA
     assert activos <= 1 and ocupada == (activos == 1)  # franja ocupada si y solo si hay un turno activo
     assert Turno.objects.get(pk=turno.id).estado == "CANCELADO_AFILIADO"
+
+
+def test_CA03_dos_solicitudes_simultaneas_por_la_ultima_franja_solo_una_crea_turno(oferta):
+    """Anexo G, CA-03: dos personas, una franja, al mismo instante: una gana y la otra recibe «franja ocupada»."""
+    franja = franja_futura(oferta["est1"], oferta["esp1"])
+    a, b = _crear_afiliados(2, 40_000)
+
+    def intento(u):
+        return lambda: ("VENTA", servicios.reservar(solicitante=u, franja_id=franja.id, motivo="", clave_idempotencia=uuid.uuid4().hex)[0].id)
+
+    resultados, errores = _lanzar([intento(a), intento(b)], hilos=2)
+    assert errores == []
+    assert len([r for r in resultados if isinstance(r, tuple)]) == 1
+    assert [r for r in resultados if isinstance(r, str)] and set(r for r in resultados if isinstance(r, str)) <= CODIGOS_DE_NEGOCIO
+    assert Turno.objects.filter(franja=franja).count() == 1

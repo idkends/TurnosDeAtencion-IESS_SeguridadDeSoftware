@@ -87,7 +87,7 @@ class AfiliacionHttp:
             headers={"X-Servicio-Token": servicio_token.firmar(self._secreto, ruta), "Accept": "application/json"},
         )
         try:
-            with urllib.request.urlopen(peticion, timeout=P.integracion_timeout_segundos) as respuesta:  # noqa: S310
+            with urllib.request.urlopen(peticion, timeout=P.integracion_timeout_segundos) as respuesta:  # noqa: S310  # nosec B310
                 crudo = respuesta.read(_LIMITE_RESPUESTA + 1)
         except urllib.error.HTTPError as error:
             if error.code == 404:

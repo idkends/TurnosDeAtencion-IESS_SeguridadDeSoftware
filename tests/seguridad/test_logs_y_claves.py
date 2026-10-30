@@ -30,14 +30,14 @@ pytestmark = pytest.mark.django_db
         "csrfmiddlewaretoken=abc", "totp_secreto=JBSWY3DP", "cédula 1750000018 llamó", "a" * 40,
     ],
 )
-def test_el_formateador_redacta_cada_marcador_sensible(texto):
+def test_T06_el_formateador_redacta_cada_marcador_sensible(texto):
     salida = redactar(texto)
     for secreto in ("Secreta12345", "Mi clave larga", "abcdef", "abc.def-ghi", "xyz", "12345678", "Hipertensión", "valor", "abcd1234", "zzzz",
                     "JBSWY3DP", "1750000018", "a" * 40):
         assert secreto not in salida, (texto, salida)
 
 
-def test_el_formateador_redacta_tambien_la_traza_de_las_excepciones():
+def test_T06_el_formateador_redacta_tambien_la_traza_de_las_excepciones():
     formateador = FormateadorSeguro("%(message)s")
     try:
         raise ValueError("falló con password=Secreta12345")
@@ -53,7 +53,7 @@ def test_el_logging_de_la_aplicacion_usa_el_formateador_seguro(settings):
     assert any("FormateadorSeguro" in str(f.get("()", "")) for f in formateadores.values())
 
 
-def test_e2e_los_flujos_sensibles_no_dejan_secretos_en_los_logs(oferta, ciudadano, crear_usuario, correo_enviado):
+def test_T06_e2e_los_flujos_sensibles_no_dejan_secretos_en_los_logs(oferta, ciudadano, crear_usuario, correo_enviado):
     """Se recorre ingreso (bueno y malo), 2.º factor, recuperación y soporte con TODOS los registros capturados."""
     buffer = io.StringIO()
     manejador = logging.StreamHandler(buffer)

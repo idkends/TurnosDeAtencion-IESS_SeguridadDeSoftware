@@ -112,7 +112,7 @@ def test_cedula_con_formato_invalido_no_llega_al_tercero(adaptador, servidor):
     assert servidor.peticiones == 0
 
 
-def test_RT10_error_5xx_es_servicio_no_disponible_nunca_cobertura(adaptador, servidor, parametro):
+def test_T07_RT10_error_5xx_es_servicio_no_disponible_nunca_cobertura(adaptador, servidor, parametro):
     servidor.modo = "error"
     with pytest.raises(ServicioNoDisponible):
         adaptador.consultar(CEDULA)

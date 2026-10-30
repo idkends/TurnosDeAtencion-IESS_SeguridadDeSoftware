@@ -1,0 +1,84 @@
+{
+  "zap": "2.17.0",
+  "generado": "Fri, 30 Oct 2026 15:24:13",
+  "conteo": {
+    "alto": 0,
+    "medio": 2,
+    "bajo": 3,
+    "informativo": 5
+  },
+  "hallazgos": {
+    "alto": [],
+    "medio": [
+      {
+        "id": "10038",
+        "nombre": "Content Security Policy (CSP) Header Not Set",
+        "instancias": 2,
+        "justificada": false
+      },
+      {
+        "id": "10098",
+        "nombre": "Cross-Domain Misconfiguration",
+        "instancias": 1,
+        "justificada": false
+      }
+    ],
+    "bajo": [
+      {
+        "id": "90004",
+        "nombre": "Cross-Origin-Embedder-Policy Header Missing or Invalid",
+        "instancias": 5,
+        "justificada": false
+      },
+      {
+        "id": "10063",
+        "nombre": "Permissions Policy Header Not Set",
+        "instancias": 3,
+        "justificada": false
+      },
+      {
+        "id": "10035",
+        "nombre": "Strict-Transport-Security Header Not Set",
+        "instancias": 2,
+        "justificada": false
+      }
+    ],
+    "informativo": [
+      {
+        "id": "10049",
+        "nombre": "Non-Storable Content",
+        "instancias": 5,
+        "justificada": false
+      },
+      {
+        "id": "10015",
+        "nombre": "Re-examine Cache-control Directives",
+        "instancias": 5,
+        "justificada": false
+      },
+      {
+        "id": "10112",
+        "nombre": "Session Management Response Identified",
+        "instancias": 10,
+        "justificada": false
+      },
+      {
+        "id": "10049",
+        "nombre": "Storable and Cacheable Content",
+        "instancias": 2,
+        "justificada": false
+      },
+      {
+        "id": "10031",
+        "nombre": "User Controllable HTML Element Attribute (Potential XSS)",
+        "instancias": 3,
+        "justificada": false
+      }
+    ]
+  },
+  "medios_sin_justificar": [
+    "Content Security Policy (CSP) Header Not Set",
+    "Cross-Domain Misconfiguration"
+  ],
+  "cumple": false
+}

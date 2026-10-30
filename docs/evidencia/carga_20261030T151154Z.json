@@ -1,0 +1,29 @@
+{
+  "fecha_utc": "2026-10-30T15:13:11+00:00",
+  "metas": {
+    "p95_ms": 2000.0,
+    "errores": 0.01
+  },
+  "escenarios": {
+    "sostenida": {
+      "solicitudes": 8000,
+      "p95_ms": 21.6,
+      "p99_ms": 95.9,
+      "tasa_errores": 0,
+      "cumple_metas": true
+    },
+    "rafaga": {
+      "solicitudes": 10969,
+      "p95_ms": 1951.6,
+      "p99_ms": 2345.2,
+      "tasa_errores": 0,
+      "cumple_metas": true
+    }
+  },
+  "origen_abusivo_limitado": {
+    "respuestas_429_o_403": 1381,
+    "cumple": true
+  },
+  "los_limites_no_bloquean_a_todos": true,
+  "cumple_metas": true
+}

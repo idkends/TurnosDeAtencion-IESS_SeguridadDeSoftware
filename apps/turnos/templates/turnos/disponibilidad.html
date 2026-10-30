@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load cache %}
 {% block titulo %}Disponibilidad{% endblock %}
 {% block contenido %}
   <h1>Buscar y reservar un turno</h1>
@@ -27,49 +28,13 @@
     </form>
   </div>
 
-  <h2>Franjas libres</h2>
-  {% if filas %}
-  <div class="tarjeta">
-    <table>
-      <caption class="ayuda">Mostrando {{ filas|length }} de {{ pantalla.pagina.total }} franjas (página {{ pantalla.pagina.pagina }})</caption>
-      <thead><tr><th scope="col">Fecha y hora</th><th scope="col">Especialidad</th><th scope="col">Establecimiento</th>{% if pantalla.puede_reservar %}<th scope="col">Reservar</th>{% endif %}</tr></thead>
-      <tbody>
-      {% for franja, clave in filas %}
-        <tr>
-          <td>{{ franja.inicio|date:"d/m/Y H:i" }}</td>
-          <td>{{ franja.especialidad }}</td>
-          <td>{{ franja.establecimiento }}</td>
-          {% if pantalla.puede_reservar %}
-          <td>
-            <form method="post" action="{% url 'turnos:turnos' %}">{% csrf_token %}
-              <input type="hidden" name="franja" value="{{ franja.id }}">
-              <input type="hidden" name="clave_idempotencia" value="{{ clave }}">
-              {% if pantalla.representados %}
-                <label for="a_{{ franja.id }}" class="ayuda">Para</label>
-                <select id="a_{{ franja.id }}" name="afiliado">
-                  <option value="">Yo</option>
-                  {% for p in pantalla.representados %}<option value="{{ p.id }}">{{ p.nombre_completo }}</option>{% endfor %}
-                </select>
-              {% endif %}
-              <label for="m_{{ franja.id }}" class="ayuda">Motivo</label>
-              <select id="m_{{ franja.id }}" name="motivo">
-                <option value="">Sin indicar</option><option value="PRIMERA_VEZ">Primera vez</option><option value="CONTROL">Control</option><option value="REFERENCIA">Referencia</option>
-              </select>
-              <button class="boton" type="submit">Reservar</button>
-            </form>
-          </td>
-          {% endif %}
-        </tr>
-      {% endfor %}
-      </tbody>
-    </table>
-    <div class="acciones">
-      {% if pantalla.pagina.pagina > 1 %}<a href="?especialidad={{ filtros.especialidad|urlencode }}&amp;establecimiento={{ filtros.establecimiento|urlencode }}&amp;pagina={{ pantalla.pagina.pagina|add:'-1' }}">Anterior</a>{% endif %}
-      {% if pantalla.pagina.hay_siguiente %}<a href="?especialidad={{ filtros.especialidad|urlencode }}&amp;establecimiento={{ filtros.establecimiento|urlencode }}&amp;pagina={{ pantalla.pagina.pagina|add:'1' }}">Siguiente</a>{% endif %}
-    </div>
-  </div>
+  {% if pantalla.puede_reservar %}
+    {% include "turnos/_tabla_franjas.html" %}
   {% else %}
-    <p>No hay franjas libres con esos filtros.</p>
+    {# Visitantes: la tabla no lleva datos personales ni formularios, así que se comparte unos segundos entre todos (R21). #}
+    {% cache pantalla.cache_segundos disponibilidad_anonima filtros.especialidad filtros.establecimiento filtros.fecha pantalla.pagina.pagina %}
+      {% include "turnos/_tabla_franjas.html" %}
+    {% endcache %}
   {% endif %}
   {% if not pantalla.puede_reservar %}
     <p class="ayuda">Para reservar necesita <a href="{% url 'cuentas:ingresar' %}">iniciar sesión</a>.</p>

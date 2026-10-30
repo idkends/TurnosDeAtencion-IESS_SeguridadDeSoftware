@@ -135,7 +135,7 @@ def _por(constancias):
     return {c.categoria: c for c in constancias}
 
 
-def test_T10_las_cuentas_inactivas_24_meses_se_anonimizan_con_constancia(ciudadano):
+def test_T11_las_cuentas_inactivas_24_meses_se_anonimizan_con_constancia(ciudadano):
     inactiva, activa = ciudadano(), ciudadano()
     Usuario.objects.filter(pk=inactiva.pk).update(last_login=reloj.ahora() - timedelta(days=30 * 25), creado=reloj.ahora() - timedelta(days=30 * 26))
     Usuario.objects.filter(pk=activa.pk).update(last_login=reloj.ahora() - timedelta(days=30 * 23))
@@ -145,7 +145,7 @@ def test_T10_las_cuentas_inactivas_24_meses_se_anonimizan_con_constancia(ciudada
     assert inactiva.estado == "BAJA" and inactiva.correo == "" and activa.estado == "ACTIVA" and activa.correo != ""
 
 
-def test_T10_los_turnos_de_mas_de_12_meses_pasan_a_agregado_anonimo_y_los_recientes_no(oferta, ciudadano):
+def test_T11_los_turnos_de_mas_de_12_meses_pasan_a_agregado_anonimo_y_los_recientes_no(oferta, ciudadano):
     usuario = ciudadano()
     viejo = Turno.objects.create(afiliado=usuario, solicitante=usuario, especialidad=oferta["esp1"], franja=franja_futura(oferta["est1"], oferta["esp1"], dias=-400),
                                  estado="ATENDIDO", inicio=reloj.ahora() - timedelta(days=400), fin=reloj.ahora() - timedelta(days=400) + timedelta(minutes=30), motivo="CONTROL")
@@ -157,7 +157,7 @@ def test_T10_los_turnos_de_mas_de_12_meses_pasan_a_agregado_anonimo_y_los_recien
     assert viejo.afiliado.cedula == "ANONIMO000" and viejo.motivo == "" and reciente.afiliado_id == usuario.id  # el agregado se conserva; la persona no
 
 
-def test_T10_los_turnos_activos_nunca_se_tocan_aunque_sean_antiguos(oferta, ciudadano):
+def test_T11_los_turnos_activos_nunca_se_tocan_aunque_sean_antiguos(oferta, ciudadano):
     usuario = ciudadano()
     f = franja_futura(oferta["est1"], oferta["esp1"], dias=-500)
     t = Turno.objects.create(afiliado=usuario, solicitante=usuario, especialidad=oferta["esp1"], franja=f, estado="CONFIRMADO", inicio=f.inicio, fin=f.fin)
@@ -166,7 +166,7 @@ def test_T10_los_turnos_activos_nunca_se_tocan_aunque_sean_antiguos(oferta, ciud
     assert t.afiliado_id == usuario.id
 
 
-def test_T10_notificaciones_6_meses_y_credenciales_vencidas_se_eliminan(ciudadano, afiliar):
+def test_T11_notificaciones_6_meses_y_credenciales_vencidas_se_eliminan(ciudadano, afiliar):
     usuario = ciudadano()
     notificaciones.enviar(plantilla="clave_cambiada", canal="CORREO", destino=usuario.correo, destinatario_id=usuario.id)
     reloj.avanzar(timedelta(days=30 * 7))
@@ -176,7 +176,7 @@ def test_T10_notificaciones_6_meses_y_credenciales_vencidas_se_eliminan(ciudadan
     assert Notificacion.objects.count() == 1  # quedó solo la reciente
 
 
-def test_T10_delegaciones_y_restricciones_vencidas_12_meses_se_eliminan(ciudadano):
+def test_T11_delegaciones_y_restricciones_vencidas_12_meses_se_eliminan(ciudadano):
     from apps.delegaciones.modelos import Delegacion
 
     titular, rep = ciudadano(), ciudadano("REPRESENTANTE")
@@ -186,7 +186,7 @@ def test_T10_delegaciones_y_restricciones_vencidas_12_meses_se_eliminan(ciudadan
     assert Delegacion.objects.filter(pk=reciente.pk).exists() and Delegacion.objects.count() == 1
 
 
-def test_T10_la_auditoria_se_archiva_no_se_borra(tmp_path, settings):
+def test_T11_la_auditoria_se_archiva_no_se_borra(tmp_path, settings):
     from apps.auditoria import servicios as auditoria
 
     auditoria.registrar(accion="PRUEBA")

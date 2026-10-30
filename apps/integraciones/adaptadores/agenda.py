@@ -91,7 +91,7 @@ class AgendaHttp:
             self._base + ruta, data=crudo_envio, method=metodo,
             headers={"X-Servicio-Token": servicio_token.firmar(self._secreto, ruta), "Content-Type": "application/json", "Accept": "application/json"},
         )
-        with urllib.request.urlopen(peticion, timeout=P.integracion_timeout_segundos) as respuesta:  # noqa: S310
+        with urllib.request.urlopen(peticion, timeout=P.integracion_timeout_segundos) as respuesta:  # noqa: S310  # nosec B310
             crudo = respuesta.read(_LIMITE_RESPUESTA + 1)
         if len(crudo) > _LIMITE_RESPUESTA:
             raise ValueError("respuesta demasiado grande")

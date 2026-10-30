@@ -4,3 +4,6 @@ pytest>=8
 pytest-django>=4.9
 pytest-cov>=6
 import-linter>=2.1
+bandit>=1.8
+pip-audit>=2.9
+cyclonedx-bom>=7

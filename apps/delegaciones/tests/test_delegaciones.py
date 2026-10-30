@@ -79,7 +79,7 @@ def test_RT08_un_representante_gestiona_hasta_5_personas(ciudadano):
     assert str(error.value) == "LIMITE_REPRESENTADOS" and Delegacion.objects.filter(representante=rep).count() == 5
 
 
-def test_el_limite_de_5_cuenta_solo_las_delegaciones_vigentes(ciudadano):
+def test_T16_el_limite_de_5_representados_cuenta_solo_las_delegaciones_vigentes(ciudadano):
     rep = ciudadano("REPRESENTANTE")
     titulares = [ciudadano() for _ in range(5)]
     ds = [_crear(t, rep) for t in titulares]

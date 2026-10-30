@@ -100,7 +100,7 @@ class Manejador(BaseHTTPRequestHandler):
 def main():
     if not SECRETO:
         raise SystemExit("Falta SERVICIOS_CLAVE_AGENDA")
-    ThreadingHTTPServer(("0.0.0.0", int(os.environ.get("AGENDA_SIM_PUERTO", "9002"))), Manejador).serve_forever()
+    ThreadingHTTPServer(("0.0.0.0", int(os.environ.get("AGENDA_SIM_PUERTO", "9002"))), Manejador).serve_forever()  # nosec B104
 
 
 if __name__ == "__main__":

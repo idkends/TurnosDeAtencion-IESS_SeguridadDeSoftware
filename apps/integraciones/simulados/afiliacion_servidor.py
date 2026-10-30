@@ -81,7 +81,7 @@ def main():
     if not SECRETO:
         raise SystemExit("Falta SERVICIOS_CLAVE_AFILIACION")
     puerto = int(os.environ.get("AFILIACION_SIM_PUERTO", "9001"))
-    ThreadingHTTPServer(("0.0.0.0", puerto), Manejador).serve_forever()
+    ThreadingHTTPServer(("0.0.0.0", puerto), Manejador).serve_forever()  # nosec B104
 
 
 if __name__ == "__main__":

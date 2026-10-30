@@ -6,6 +6,8 @@ import time
 
 from django.core.cache import caches
 
+from config import limites
+
 LIMITES_LATENCIA = (0.05, 0.1, 0.25, 0.5, 1.0, 2.0, 3.0, 5.0, 10.0)  # segundos; el último cubo es "más de 10 s"
 
 
@@ -17,19 +19,11 @@ def _minuto(ts: float | None = None) -> int:
     return int((ts if ts is not None else time.time()) // 60)
 
 
-def _incr(clave: str) -> None:
-    cache = _cache()
-    cache.add(clave, 0, timeout=3600)
-    cache.incr(clave)
-
-
 def registrar(duracion_s: float, estado: int, ts: float | None = None) -> None:
     m = _minuto(ts)
-    _incr(f"met:tot:{m}")
-    if estado >= 500:
-        _incr(f"met:5xx:{m}")
     cubo = next((i for i, limite in enumerate(LIMITES_LATENCIA) if duracion_s <= limite), len(LIMITES_LATENCIA))
-    _incr(f"met:lat:{m}:{cubo}")
+    claves = [f"met:tot:{m}", f"met:lat:{m}:{cubo}"] + ([f"met:5xx:{m}"] if estado >= 500 else [])
+    limites.incrementar("limites", claves, 3600)
 
 
 def resumen(ventana_segundos: int, ahora: float | None = None) -> dict:

@@ -44,15 +44,32 @@ x-app-entorno: &app-entorno
   SERVICIOS_CLAVE_AGENDA: ${SERVICIOS_CLAVE_AGENDA}
   NOTIFICACIONES_ADAPTADOR: ${NOTIFICACIONES_ADAPTADOR:-consola}
 
+# Endurecimiento común (Anexo H, §4.1): sin root (USER en las imágenes), sistema de archivos de solo lectura salvo /tmp y los volúmenes
+# declarados, sin nuevos privilegios, sin capacidades de Linux, con límite de procesos y de recursos.
+x-endurecido: &endurecido
+  read_only: true
+  cap_drop: [ALL]
+  security_opt: ["no-new-privileges:true"]
+  pids_limit: 512
+  tmpfs:
+    - /tmp:size=64m,mode=1777
+
 services:
   proxy:
-    image: nginxinc/nginx-unprivileged:stable-alpine
+    image: nginxinc/nginx-unprivileged:1.30.6-alpine@sha256:f5116ed4606f3eb015dd4a8e28cb9b351476dc0ad4bc6e9f93b19cec130cdf03
+    <<: *endurecido
+    mem_limit: 256m
+    cpus: 2
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+      - /var/cache/nginx:size=64m,uid=101,gid=101
     ports:
-      - "127.0.0.1:8443:8443"    # HTTPS de desarrollo (https://localhost:8443); solo accesible desde este equipo
-      - "127.0.0.1:18080:8080"   # solo redirige a HTTPS (18080 para no chocar con servidores locales en 8080)
+      - "127.0.0.1:${PUERTO_HTTPS:-8443}:8443"    # HTTPS de desarrollo (https://localhost:8443); solo accesible desde este equipo
+      - "127.0.0.1:${PUERTO_HTTP:-18080}:8080"   # solo redirige a HTTPS (18080 para no chocar con servidores locales en 8080)
     volumes:
       - ./docker/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
       - ./docker/nginx/proxy_aplicacion.conf:/etc/nginx/proxy_aplicacion.conf:ro
+      - ./docker/nginx/cabeceras_error.conf:/etc/nginx/cabeceras_error.conf:ro
       - ./docker/certs:/certs:ro
     networks: [perimetro, aplicacion]
     depends_on:
@@ -66,6 +83,9 @@ services:
     restart: unless-stopped
 
   app:
+    <<: *endurecido
+    mem_limit: 1g
+    cpus: 10
     build:
       context: .
       target: final
@@ -73,6 +93,8 @@ services:
       <<: *app-entorno
       DB_USUARIO: iess_app
       DB_CLAVE: ${DB_CLAVE}
+      HOME: /tmp
+      WEB_CONCURRENCY: ${WEB_CONCURRENCY:-10}   # procesos de gunicorn; medido con scripts/carga.sh (T09)
     volumes:
       - bandeja:/var/bandeja
     networks: [aplicacion, datos, externos]
@@ -89,6 +111,9 @@ services:
 
   # Tareas programadas: expira turnos sin confirmar (RT-05) y concilia los PENDIENTES con la agenda.
   tareas:
+    <<: *endurecido
+    mem_limit: 512m
+    cpus: 1
     build:
       context: .
       target: final
@@ -110,6 +135,9 @@ services:
 
   # Aplica migraciones con el rol dueño del esquema (la aplicación nunca puede hacer DDL).
   migrar:
+    <<: *endurecido
+    mem_limit: 512m
+    cpus: 1
     build:
       context: .
       target: final
@@ -124,7 +152,19 @@ services:
         condition: service_healthy
 
   db:
-    image: postgres:18
+    image: postgres:18.6@sha256:979bccfde35445db618c65107d27d08c6c21339d8dc3ad4c830c6633947be0e4
+    security_opt: ["no-new-privileges:true"]
+    read_only: true
+    # El arranque de la imagen oficial entra como root y baja a `postgres`: necesita estas cinco capacidades y ninguna otra.
+    cap_drop: [ALL]
+    cap_add: [CHOWN, DAC_OVERRIDE, FOWNER, SETGID, SETUID]
+    pids_limit: 512
+    mem_limit: 2g
+    cpus: 4
+    shm_size: 256m
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+      - /var/run/postgresql:size=8m,uid=999,gid=999,mode=1777
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
@@ -155,7 +195,14 @@ services:
     restart: unless-stopped
 
   redis:
-    image: redis:8-alpine
+    image: redis:8.10.3-alpine@sha256:21090af93f8324db2f0f0f4f38a7c60369d47d917e000c3423d89d2ae2883537
+    user: "999:1000"        # usuario `redis` (el comando propio omite el cambio de usuario del arranque oficial)
+    <<: *endurecido
+    mem_limit: 256m
+    cpus: 1
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+      - /data:size=16m,uid=999,gid=1000
     # Solo límites de solicitudes y caché: sin persistencia y sin datos personales.
     command: ["sh", "-c", "exec redis-server --requirepass \"$$REDIS_CLAVE\" --save '' --appendonly no"]
     environment:
@@ -171,6 +218,9 @@ services:
 
   # Servicio de afiliación SIMULADO (tercero): autentica con token de servicio firmado y falla a propósito si se le pide.
   afiliacion_sim:
+    <<: *endurecido
+    mem_limit: 128m
+    cpus: 0.5
     build:
       context: .
       target: final
@@ -187,6 +237,9 @@ services:
     restart: unless-stopped
 
   agenda_sim:
+    <<: *endurecido
+    mem_limit: 128m
+    cpus: 0.5
     build:
       context: .
       target: final

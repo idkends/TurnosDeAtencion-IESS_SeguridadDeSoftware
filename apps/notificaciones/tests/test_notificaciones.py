@@ -10,14 +10,14 @@ pytestmark = pytest.mark.django_db
 PALABRAS_PROHIBIDAS = ("diagn", "especialidad", "cardio", "pediat", "ginec", "odont", "medicina", "profesional", "médico", "tratamiento", "enfermedad")
 
 
-def test_todas_las_plantillas_son_neutrales():
+def test_T05_todas_las_plantillas_son_neutrales():
     for nombre, (asunto, cuerpo) in servicios.PLANTILLAS.items():
         texto = (asunto + " " + cuerpo).lower()
         for palabra in PALABRAS_PROHIBIDAS:
             assert palabra not in texto, (nombre, palabra)
 
 
-def test_solo_los_enlaces_de_un_solo_uso_pueden_llevar_url():
+def test_T05_solo_los_enlaces_de_un_solo_uso_pueden_llevar_url():
     for nombre, (_, cuerpo) in servicios.PLANTILLAS.items():
         tiene_url = "{enlace}" in cuerpo or "http" in cuerpo
         assert tiene_url == (nombre in ("recuperacion", "recordatorio")), nombre  # solo enlaces de un solo uso que llevan a iniciar sesión
@@ -28,7 +28,7 @@ def test_una_plantilla_inexistente_no_se_envia():
         servicios.enviar(plantilla="diagnostico_libre", canal="CORREO", destino="a@b.example")
 
 
-def test_el_envio_se_registra_sin_cuerpo_ni_secretos(crear_usuario):
+def test_T06_el_envio_se_registra_sin_cuerpo_ni_secretos(crear_usuario):
     usuario = crear_usuario()
     assert servicios.enviar(plantilla="activacion", canal="CORREO", destino=usuario.correo,
                             parametros={"codigo": "12345678", "minutos": 15}, destinatario_id=usuario.id)

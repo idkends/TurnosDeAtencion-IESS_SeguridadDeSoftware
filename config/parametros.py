@@ -74,6 +74,8 @@ class Parametros:
     turnos_reprogramaciones_maximas: int = 2
     turnos_activos_por_especialidad: int = 1
     turnos_activos_totales: int = 3
+    catalogos_cache_segundos: int = 60
+    disponibilidad_fragmento_cache_segundos: int = 10
     turnos_representados_por_representante: int = 5
     turnos_porcentaje_cupos_prioritarios: int = 10
 

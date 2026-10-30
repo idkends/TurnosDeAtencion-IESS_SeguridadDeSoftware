@@ -56,6 +56,7 @@ class CabecerasSeguridadMiddleware:
         respuesta = self.get_response(request)
         respuesta.setdefault("Permissions-Policy", "camera=(), microphone=(), geolocation=(), payment=(), usb=()")
         respuesta.setdefault("Cross-Origin-Resource-Policy", "same-origin")
+        respuesta.setdefault("Cross-Origin-Embedder-Policy", "require-corp")
         if not request.path.startswith(settings.STATIC_URL):
             respuesta.setdefault("Cache-Control", "no-store")
         return respuesta
@@ -93,5 +94,5 @@ class MetricasMiddleware:
             if request.path != "/salud":
                 try:
                     metricas.registrar(time.monotonic() - inicio, estado)
-                except Exception:  # noqa: BLE001  (las métricas nunca deben tumbar una solicitud)
+                except Exception:  # noqa: BLE001  # nosec B110
                     pass

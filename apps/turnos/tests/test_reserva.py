@@ -54,7 +54,7 @@ def test_CA02_segunda_reserva_en_la_misma_especialidad_se_rechaza_con_mensaje_ge
     assert EventoAuditoria.objects.filter(accion="RESERVA_RECHAZADA", detalle__codigo="YA_TIENE_CITA_ESPECIALIDAD").exists()  # queda auditado
 
 
-def test_tope_de_3_citas_activas_en_total(oferta, ciudadano):
+def test_T16_tope_de_3_citas_activas_en_total(oferta, ciudadano):
     usuario = ciudadano()
     for esp, hora in ((oferta["esp1"], 8), (oferta["esp2"], 10), (oferta["esp3"], 12)):
         _reservar(usuario, franja_futura(oferta["est1"], esp, hora=hora))
@@ -66,7 +66,7 @@ def test_tope_de_3_citas_activas_en_total(oferta, ciudadano):
     assert error.value.codigo == "TOPE_DE_CITAS"
 
 
-def test_sin_solape_de_horario_para_la_misma_persona(oferta, ciudadano):
+def test_T16_sin_solape_de_horario_para_la_misma_persona(oferta, ciudadano):
     usuario = ciudadano()
     _reservar(usuario, franja_futura(oferta["est1"], oferta["esp1"], hora=9, minuto=0))
     with pytest.raises(servicios.ReglaRechazada) as error:

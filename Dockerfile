@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 # --- Compilación: instala dependencias con verificación de hashes en un entorno virtual ---------------------------
-FROM python:3.13-slim-bookworm AS base-deps
+FROM python:3.13-slim-bookworm@sha256:281d39ff02e3b389401586134ff9e6572954687822a58055ec07a60ded4e0b7f AS base-deps
 ENV PIP_NO_CACHE_DIR=1 PIP_DISABLE_PIP_VERSION_CHECK=1
 RUN python -m venv /opt/venv
 COPY requirements.txt /tmp/requirements.txt
@@ -12,7 +12,7 @@ COPY requirements-dev.txt /tmp/requirements-dev.txt
 RUN /opt/venv/bin/pip install --require-hashes --no-deps -r /tmp/requirements-dev.txt
 
 # --- Imagen de pruebas ----------------------------------------------------------------------------------------------
-FROM python:3.13-slim-bookworm AS pruebas
+FROM python:3.13-slim-bookworm@sha256:281d39ff02e3b389401586134ff9e6572954687822a58055ec07a60ded4e0b7f AS pruebas
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 PATH="/opt/venv/bin:$PATH"
 COPY --from=dev-deps /opt/venv /opt/venv
 RUN useradd --system --uid 10001 --create-home app
@@ -20,7 +20,7 @@ WORKDIR /app
 USER app
 
 # --- Imagen de ejecución: sin pip, sin compiladores, usuario no root --------------------------------------------
-FROM python:3.13-slim-bookworm AS final
+FROM python:3.13-slim-bookworm@sha256:281d39ff02e3b389401586134ff9e6572954687822a58055ec07a60ded4e0b7f AS final
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 PATH="/opt/venv/bin:$PATH" \
     DJANGO_SETTINGS_MODULE=config.settings.prod
 COPY --from=base-deps /opt/venv /opt/venv
@@ -41,4 +41,4 @@ USER app
 EXPOSE 8000
 HEALTHCHECK --interval=15s --timeout=4s --start-period=20s --retries=3 \
     CMD ["python", "-c", "import urllib.request as u; r=u.Request('http://127.0.0.1:8000/salud', headers={'X-Forwarded-Proto':'https'}); u.urlopen(r, timeout=3)"]
-CMD ["gunicorn", "config.wsgi:application", "--bind", "0.0.0.0:8000", "--workers", "2", "--worker-class", "gthread", "--threads", "4", "--timeout", "10", "--limit-request-line", "4094"]
+CMD ["gunicorn", "config.wsgi:application", "--bind", "0.0.0.0:8000", "--worker-class", "gthread", "--threads", "4", "--timeout", "10", "--limit-request-line", "4094"]
