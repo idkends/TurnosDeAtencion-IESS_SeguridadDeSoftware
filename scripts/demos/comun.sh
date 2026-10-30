@@ -7,8 +7,8 @@
 # Resultado esperado: el ataque FUNCIONA contra LAB y FALLA contra MAIN. Si no, la demo sale con error.
 cd "$(dirname "$0")/../.."
 export MSYS_NO_PATHCONV=1 PYTHONIOENCODING=utf-8
-RAIZ="$(pwd)"
-DIR_LAB="${DIR_LAB:-$RAIZ/../iess-lab}"
+RAIZ="$(pwd -W 2> /dev/null || pwd)"   # en Git Bash, ruta de Windows (C:/…) para que Python y Docker la entiendan
+DIR_LAB="${DIR_LAB:-$(cd ../iess-lab 2> /dev/null && (pwd -W 2> /dev/null || pwd))}"
 URL_LAB="${URL_LAB:-https://localhost:9443}"
 URL_MAIN="${URL_MAIN:-https://localhost:8443}"
 

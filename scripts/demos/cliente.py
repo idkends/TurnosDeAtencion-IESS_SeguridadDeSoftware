@@ -3,6 +3,7 @@ de los formularios y NO sigue redirecciones, para poder ver el código exacto qu
 import http.cookiejar
 import re
 import ssl
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -54,8 +55,12 @@ class Navegador:
         for c in self.cookies:
             if c.name.endswith("csrftoken"):
                 return c.value
-        self.get("/sesion")
-        return next(c.value for c in self.cookies if c.name.endswith("csrftoken"))
+        for _ in range(12):  # si el límite de solicitudes responde 429, se espera como lo haría una persona (Retry-After)
+            r = self.get("/sesion")
+            if r.estado == 200:
+                return next(c.value for c in self.cookies if c.name.endswith("csrftoken"))
+            time.sleep(min(int(r.cabeceras.get("Retry-After", "5") or 5), 10))
+        raise RuntimeError("No se pudo obtener el token CSRF (límites de solicitudes)")
 
     def post(self, ruta: str, datos: dict, extra: dict | None = None) -> Respuesta:
         datos = {**datos, "csrfmiddlewaretoken": self.token_csrf()}

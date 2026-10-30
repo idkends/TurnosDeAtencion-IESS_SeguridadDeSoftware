@@ -36,7 +36,8 @@ class Objetivo:
         return r.stdout.replace("\r", "")
 
     def django(self, codigo: str) -> str:
-        return self.compose("exec", "-T", "app", "python", "manage.py", "shell", "-c", codigo).strip()
+        salida = self.compose("exec", "-T", "app", "python", "manage.py", "shell", "-v", "0", "-c", codigo).strip().splitlines()
+        return salida[-1].strip() if salida else ""  # el shell de Django antepone avisos de importación automática
 
     def cuentas(self, *indices: int) -> dict:
         salida = self.compose("exec", "-T", "app", "python", "manage.py", "usuarios_demo", *map(str, indices))
@@ -47,7 +48,7 @@ class Objetivo:
         self.django(
             "from apps.turnos.modelos import Turno, Franja\n"
             f"ids = list(Turno.objects.filter(afiliado__cedula__in={cedulas!r}, estado__in=['PENDIENTE','RESERVADO','CONFIRMADO']).values_list('franja_id', flat=True))\n"
-            f"Turno.objects.filter(afiliado__cedula__in={cedulas!r}, estado__in=['PENDIENTE','RESERVADO','CONFIRMADO']).update(estado='CANCELADO_USUARIO')\n"
+            f"Turno.objects.filter(afiliado__cedula__in={cedulas!r}, estado__in=['PENDIENTE','RESERVADO','CONFIRMADO']).update(estado='CANCELADO_AFILIADO')\n"
             "Franja.objects.filter(pk__in=ids).update(estado='LIBRE')"
         )
 
@@ -142,7 +143,7 @@ def demo_b(o: Objetivo) -> int:
 
 
 def demo_c(o: Objetivo) -> int:
-    n = 20
+    n = 8  # el límite de inicios de sesión es 10/min por IP: con 8 personas la demo no choca con él
     cuentas = o.cuentas(*range(21, 21 + n))
     o.limpiar(list(cuentas))
     navs = []
@@ -237,15 +238,17 @@ def demo_e(o: Objetivo) -> int:
 
 def demo_f(o: Objetivo) -> int:
     ced, _ = next(iter(o.cuentas(13).items()))
-    desde = time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime(time.time() - 2))
     atacante = "atacante.example"
     titulo(f"El atacante pide recuperar la cuenta de {ced} pero envía «Host: {atacante}»; el correo llegará a la VÍCTIMA")
     nav = o.navegador(host=atacante)
-    nav.get("/cuenta/recuperar/")
+    previa = nav.get("/cuenta/recuperar/")
+    if previa.estado == 400:  # Django rechaza el Host que no está en ALLOWED_HOSTS antes de ejecutar ninguna vista
+        print(f"    GET /cuenta/recuperar/ con Host «{atacante}» → HTTP 400 (Host no permitido); no se genera ningún enlace")
+        return veredicto(False, "", "HTTP 400: el Host falso se rechaza y los enlaces usan el dominio FIJO de la configuración (CA-16)")
     r = nav.post("/cuenta/recuperar/", {"cedula": ced}, extra={"Referer": f"https://{atacante}/cuenta/recuperar/"})
     print(f"    POST /cuenta/recuperar/ → HTTP {r.estado}")
     time.sleep(2)
-    registro = o.compose("logs", "--since", desde, "app")
+    registro = o.compose("logs", "--since", "20s", "app")
     enlaces = re.findall(r"https?://[^\s\"']*/cuenta/restablecer/[^\s\"']+", registro)
     if enlaces:
         enlace = re.sub(r"restablecer/[^/\s]+", "restablecer/<token>", enlaces[-1])
@@ -264,4 +267,16 @@ if __name__ == "__main__":
     p.add_argument("--directorio", required=True)
     p.add_argument("--proyecto", required=True)
     a = p.parse_args()
-    sys.exit(ATAQUES[a.demo](Objetivo(a.url, a.directorio, a.proyecto)))
+    objetivo = Objetivo(a.url, a.directorio, a.proyecto)
+    # Arnés: se reinician los contadores de límites y los bloqueos de origen (Redis, bases 0 y 1) para que cada demo parta de cero;
+    # sin esto, la propia detección (D01-D18) bloquearía al presentador tras varias demostraciones seguidas.
+    # También se detiene la tarea de detección mientras dura la demo: de lo contrario, la regla D06 (varias cuentas desde una IP) bloquearía
+    # al propio presentador a mitad de la demostración. Se reanuda al terminar.
+    objetivo.compose("stop", "tareas")
+    try:
+        objetivo.compose("exec", "-T", "redis", "sh", "-c", 'redis-cli --no-auth-warning -a "$REDIS_CLAVE" flushall')
+        codigo = ATAQUES[a.demo](objetivo)
+    finally:
+        objetivo.compose("exec", "-T", "redis", "sh", "-c", 'redis-cli --no-auth-warning -a "$REDIS_CLAVE" flushall')
+        objetivo.compose("start", "tareas")
+    sys.exit(codigo)

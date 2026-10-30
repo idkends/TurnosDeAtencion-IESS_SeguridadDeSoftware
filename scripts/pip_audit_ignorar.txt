@@ -1,0 +1,2 @@
+# Vulnerabilidades de dependencias aceptadas, una por línea: <ID>  <justificación (obligatoria)>
+# Vacío = ninguna aceptada. pip-audit falla con cualquier otra.
