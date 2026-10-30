@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block titulo %}Ingresar{% endblock %}
+{% block contenido %}
+  <h1>Ingresar</h1>
+  <div class="tarjeta">
+    <form method="post" novalidate>{% csrf_token %}
+      <input type="hidden" name="next" value="{{ next }}">
+      {% include "componentes/campos.html" %}
+      <div class="acciones">
+        <button class="boton" type="submit">Ingresar</button>
+        <a href="{% url 'cuentas:recuperar' %}">Olvidé mi clave</a>
+        <a href="{% url 'cuentas:activar' %}">Activar mi cuenta</a>
+      </div>
+    </form>
+  </div>
+{% endblock %}

@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block titulo %}Enlace no válido{% endblock %}
+{% block contenido %}
+  <h1>El enlace no es válido o ya venció</h1>
+  <div class="tarjeta">
+    <p>Los enlaces de restablecimiento sirven una sola vez y vencen en pocos minutos. Solicite uno nuevo.</p>
+    <div class="acciones"><a class="boton" href="{% url 'cuentas:recuperar' %}">Solicitar un enlace nuevo</a></div>
+  </div>
+{% endblock %}

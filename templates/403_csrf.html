@@ -1,0 +1,7 @@
+{% extends "base.html" %}
+{% block titulo %}Solicitud no válida{% endblock %}
+{% block contenido %}
+  <h1>No pudimos procesar la solicitud</h1>
+  <p>La página caducó o la solicitud no es válida. Vuelva a cargar la página e intente de nuevo.</p>
+  <p><a href="{% url 'inicio' %}">Volver al inicio</a></p>
+{% endblock %}

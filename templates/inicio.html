@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block titulo %}Inicio{% endblock %}
+{% block contenido %}
+  <h1>Portal de turnos de atención</h1>
+  {% if user.is_authenticated %}
+    <div class="tarjeta">
+      <p>Bienvenido, {{ user }}.</p>
+      <p class="ayuda">La búsqueda y reserva de turnos se incorpora en la siguiente etapa del prototipo.</p>
+    </div>
+  {% else %}
+    <div class="tarjeta">
+      <p>Reserve, confirme y gestione sus citas médicas en línea.</p>
+      <div class="acciones">
+        <a class="boton" href="{% url 'cuentas:ingresar' %}">Ingresar</a>
+        <a class="boton secundario" href="{% url 'cuentas:activar' %}">Activar mi cuenta</a>
+      </div>
+    </div>
+  {% endif %}
+{% endblock %}

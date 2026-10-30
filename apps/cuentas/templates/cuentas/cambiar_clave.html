@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block titulo %}Cambiar clave{% endblock %}
+{% block contenido %}
+  <h1>Cambiar mi clave</h1>
+  <div class="tarjeta">
+    <p>Al cambiar la clave se cerrarán todas sus sesiones y tendrá que ingresar de nuevo. Esta operación requiere el segundo factor.</p>
+    <form method="post" novalidate>{% csrf_token %}
+      {% include "componentes/campos.html" %}
+      <div class="acciones"><button class="boton" type="submit">Cambiar clave</button></div>
+    </form>
+  </div>
+{% endblock %}

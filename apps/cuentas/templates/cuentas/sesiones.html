@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block titulo %}Mis sesiones{% endblock %}
+{% block contenido %}
+  <h1>Mis sesiones abiertas</h1>
+  <p class="ayuda">Puede tener hasta 3 dispositivos a la vez. Cierre cualquiera que no reconozca.</p>
+  <div class="tarjeta">
+    <table>
+      <caption class="ayuda">Sesiones activas de su cuenta</caption>
+      <thead><tr><th scope="col">Dispositivo</th><th scope="col">Zona de red</th><th scope="col">Inicio</th><th scope="col">Última actividad</th><th scope="col"><span class="ayuda">Acción</span></th></tr></thead>
+      <tbody>
+      {% for s in sesiones %}
+        <tr>
+          <td>{{ s.agente }}{% if s.actual %} <strong>(esta sesión)</strong>{% endif %}</td>
+          <td>{{ s.ip_aproximada }}</td>
+          <td>{{ s.creada|date:"d/m/Y H:i" }}</td>
+          <td>{{ s.ultima_actividad|date:"d/m/Y H:i" }}</td>
+          <td>
+            <form method="post" action="{% url 'cuentas:revocar_sesion' s.id %}">{% csrf_token %}
+              <button class="boton secundario" type="submit">Cerrar</button>
+            </form>
+          </td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="5">No hay sesiones activas.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <p><a href="{% url 'cuentas:mfa_configurar' %}">Configurar o cambiar mi segundo factor</a></p>
+{% endblock %}

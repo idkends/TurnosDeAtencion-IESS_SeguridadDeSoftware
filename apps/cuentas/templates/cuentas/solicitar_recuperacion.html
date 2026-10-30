@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block titulo %}Recuperar clave{% endblock %}
+{% block contenido %}
+  <h1>Recuperar mi clave</h1>
+  <div class="tarjeta">
+    <p>Ingrese su cédula. Si la cuenta existe, enviaremos un enlace de un solo uso al contacto registrado.</p>
+    <form method="post" novalidate>{% csrf_token %}
+      {% include "componentes/campos.html" %}
+      <div class="acciones"><button class="boton" type="submit">Enviar enlace</button></div>
+    </form>
+  </div>
+{% endblock %}

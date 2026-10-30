@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block titulo %}Restablecer clave{% endblock %}
+{% block contenido %}
+  <h1>Elija una clave nueva</h1>
+  <div class="tarjeta">
+    <p>Use al menos 12 caracteres. No use su cédula, su nombre ni su fecha de nacimiento.</p>
+    <form method="post" novalidate>{% csrf_token %}
+      {% include "componentes/campos.html" %}
+      <div class="acciones"><button class="boton" type="submit">Restablecer clave</button></div>
+    </form>
+  </div>
+{% endblock %}

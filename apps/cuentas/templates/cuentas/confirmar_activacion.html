@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block titulo %}Confirmar activación{% endblock %}
+{% block contenido %}
+  <h1>Elija su clave</h1>
+  <div class="tarjeta">
+    <p>Ingrese el código recibido y elija una clave de al menos 12 caracteres. No use su cédula, su nombre ni su fecha de nacimiento.</p>
+    <form method="post" novalidate>{% csrf_token %}
+      {% include "componentes/campos.html" %}
+      <div class="acciones"><button class="boton" type="submit">Activar cuenta</button></div>
+    </form>
+  </div>
+{% endblock %}

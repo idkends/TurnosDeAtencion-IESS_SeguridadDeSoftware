@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block titulo %}Segundo factor{% endblock %}
+{% block contenido %}
+  <h1>Verificación en dos pasos</h1>
+  <div class="tarjeta">
+    <p>Ingrese el código de 6 dígitos de su aplicación autenticadora. Si perdió el dispositivo, use uno de sus códigos de recuperación (cada uno sirve una sola vez).</p>
+    <form method="post" novalidate>{% csrf_token %}
+      <input type="hidden" name="next" value="{{ next }}">
+      {% include "componentes/campos.html" %}
+      <div class="acciones"><button class="boton" type="submit">Verificar</button></div>
+    </form>
+  </div>
+{% endblock %}

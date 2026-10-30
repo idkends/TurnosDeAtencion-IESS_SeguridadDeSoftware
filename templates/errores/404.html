@@ -1,0 +1,7 @@
+{% extends "base.html" %}
+{% block titulo %}No encontrado{% endblock %}
+{% block contenido %}
+  <h1>No encontramos lo que busca</h1>
+  <p>La página o el recurso no existe o no está disponible para usted.</p>
+  <p><a href="{% url 'inicio' %}">Volver al inicio</a></p>
+{% endblock %}

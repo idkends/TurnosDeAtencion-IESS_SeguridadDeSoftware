@@ -1,0 +1,7 @@
+{% extends "base.html" %}
+{% block titulo %}Demasiados intentos{% endblock %}
+{% block contenido %}
+  <h1>Demasiados intentos</h1>
+  <p>Por seguridad limitamos la frecuencia de las solicitudes. Espere unos minutos e intente de nuevo.</p>
+  <p><a href="{% url 'inicio' %}">Volver al inicio</a></p>
+{% endblock %}

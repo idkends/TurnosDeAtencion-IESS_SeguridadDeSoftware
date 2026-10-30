@@ -1,0 +1,46 @@
+{% load static %}<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <meta name="referrer" content="same-origin">
+  <title>{% block titulo %}Portal de turnos{% endblock %} · IESS (prototipo)</title>
+  <link rel="stylesheet" href="{% static 'css/base.css' %}">
+  <script src="{% static 'js/formularios.js' %}" defer></script>
+</head>
+<body>
+  <a class="saltar" href="#contenido">Saltar al contenido</a>
+  <header class="sitio">
+    <div class="contenedor">
+      <a class="marca" href="{% url 'inicio' %}">Portal de turnos IESS <span class="ayuda">(prototipo con datos ficticios)</span></a>
+      <nav aria-label="Principal">
+        <ul>
+          {% if user.is_authenticated %}
+            <li><a href="{% url 'inicio' %}">Inicio</a></li>
+            <li><a href="{% url 'cuentas:sesiones' %}">Mis sesiones</a></li>
+            <li><a href="{% url 'cuentas:cambiar_clave' %}">Cambiar clave</a></li>
+            <li>
+              <form method="post" action="{% url 'cuentas:salir' %}">{% csrf_token %}
+                <button class="boton secundario" type="submit">Cerrar sesión</button>
+              </form>
+            </li>
+          {% else %}
+            <li><a href="{% url 'cuentas:ingresar' %}">Ingresar</a></li>
+            <li><a href="{% url 'cuentas:activar' %}">Activar cuenta</a></li>
+          {% endif %}
+        </ul>
+      </nav>
+    </div>
+  </header>
+  <main id="contenido" class="contenedor" tabindex="-1">
+    {% if messages %}
+      <ul class="mensajes" role="status" aria-live="polite">
+        {% for mensaje in messages %}<li class="{{ mensaje.tags }}">{{ mensaje }}</li>{% endfor %}
+      </ul>
+    {% endif %}
+    {% block contenido %}{% endblock %}
+  </main>
+  <footer class="sitio">Prototipo académico · Datos 100 % sintéticos · No es un servicio real del IESS.</footer>
+</body>
+</html>

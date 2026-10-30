@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block titulo %}Configurar segundo factor{% endblock %}
+{% block contenido %}
+  <h1>Configurar el segundo factor</h1>
+  <div class="tarjeta">
+    <ol>
+      <li>Abra su aplicación autenticadora (TOTP) y escanee este código QR.</li>
+      <li>Si no puede escanearlo, escriba esta clave manualmente: <strong>{{ configuracion.secreto }}</strong></li>
+      <li>Escriba abajo el código de 6 dígitos que muestra la aplicación.</li>
+    </ol>
+    <div class="qr" role="img" aria-label="Código QR para configurar la aplicación autenticadora">{{ configuracion.qr_svg }}</div>
+    <form method="post" novalidate>{% csrf_token %}
+      <input type="hidden" name="next" value="{{ next }}">
+      {% include "componentes/campos.html" %}
+      <div class="acciones"><button class="boton" type="submit">Confirmar</button></div>
+    </form>
+  </div>
+{% endblock %}

@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block titulo %}Revise su contacto registrado{% endblock %}
+{% block contenido %}
+  <h1>Revise su contacto registrado</h1>
+  <div class="tarjeta">
+    <p>Si la cédula corresponde a un afiliado vigente, enviamos un código al contacto registrado en el IESS. El código vence en pocos minutos y sirve una sola vez.</p>
+    <p class="ayuda">Por seguridad, este mensaje es el mismo exista o no la cédula.</p>
+    <div class="acciones">
+      <a class="boton" href="{% url 'cuentas:activar_confirmar' %}?cedula={{ cedula|urlencode }}">Ingresar el código</a>
+    </div>
+  </div>
+{% endblock %}

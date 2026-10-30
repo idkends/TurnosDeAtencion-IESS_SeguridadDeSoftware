@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block titulo %}Revise su contacto registrado{% endblock %}
+{% block contenido %}
+  <h1>Revise su contacto registrado</h1>
+  <div class="tarjeta">
+    <p>Si la cuenta existe, enviamos un enlace al contacto registrado. El enlace vence en pocos minutos y sirve una sola vez.</p>
+    <p class="ayuda">Este mensaje es el mismo exista o no la cédula.</p>
+    <div class="acciones"><a class="boton secundario" href="{% url 'cuentas:ingresar' %}">Volver a ingresar</a></div>
+  </div>
+{% endblock %}

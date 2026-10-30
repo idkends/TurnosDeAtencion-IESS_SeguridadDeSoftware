@@ -1,0 +1,7 @@
+{% extends "base.html" %}
+{% block titulo %}Acceso denegado{% endblock %}
+{% block contenido %}
+  <h1>No tiene acceso a este recurso</h1>
+  <p>Si cree que se trata de un error, comuníquese con su unidad de atención.</p>
+  <p><a href="{% url 'inicio' %}">Volver al inicio</a></p>
+{% endblock %}
