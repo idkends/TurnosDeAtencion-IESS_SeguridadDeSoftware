@@ -1,0 +1,14 @@
+.git
+.env
+.env.*
+!.env.example
+**/__pycache__
+.pytest_cache
+var
+staticfiles
+docs
+prompts
+tests
+**/tests
+docker/certs/*.pem
+docker/certs/*.key
