@@ -81,6 +81,7 @@ def test_CA05_mensaje_y_respuesta_iguales_exista_o_no_la_cedula(crear_usuario, c
     def pedir(cedula):
         r = cliente.post(reverse("cuentas:recuperar"), {"cedula": cedula})
         cuerpo = re.sub(r'name="csrfmiddlewaretoken" value="[^"]+"', "", r.content.decode())
+        cuerpo = re.sub(r'nonce="[^"]+"', 'nonce=""', cuerpo)  # el nonce de la CSP cambia en cada respuesta
         return r.status_code, cuerpo, [t.name for t in r.templates]
 
     assert pedir(usuario.cedula) == pedir(sintetica(888891))

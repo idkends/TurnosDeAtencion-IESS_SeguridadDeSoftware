@@ -38,6 +38,7 @@ def test_CA05_cedula_inexistente_y_clave_incorrecta_dan_el_mismo_mensaje_y_estad
         r = cliente.post(reverse("cuentas:ingresar"), {"cedula": cedula, "clave": clave})
         cuerpo = r.content.decode()
         cuerpo = re.sub(r'name="csrfmiddlewaretoken" value="[^"]+"', "", cuerpo)
+        cuerpo = re.sub(r'nonce="[^"]+"', 'nonce=""', cuerpo)  # el nonce de la CSP cambia en cada respuesta
         cuerpo = re.sub(r'value="\d{10}"', 'value=""', cuerpo)  # el formulario devuelve lo que la persona escribió
         return r.status_code, cuerpo, [t.name for t in r.templates]
 
